@@ -1,0 +1,107 @@
+{
+  "production_version": "3.0.20",
+  "oracle_version": "3.0.18",
+  "skeleton_tag": "2020-10-01",
+  "files": {
+    "official-xslt/3.0.18/CEN-EN16931-UBL.xslt": {
+      "url": "https://repo1.maven.org/maven2/com/helger/phive/rules/phive-rules-peppol/3.2.10/phive-rules-peppol-3.2.10.jar!/external/schematron/openpeppol/2024.11/xslt/CEN-EN16931-UBL.xslt",
+      "sha256": "eff27c40e922dc386c132e6876bbc7b0ac3795c21a9df6aead5aadd9cf953eb9"
+    },
+    "official-xslt/3.0.18/PEPPOL-EN16931-UBL.xslt": {
+      "url": "https://repo1.maven.org/maven2/com/helger/phive/rules/phive-rules-peppol/3.2.10/phive-rules-peppol-3.2.10.jar!/external/schematron/openpeppol/2024.11/xslt/PEPPOL-EN16931-UBL.xslt",
+      "sha256": "3e6fa278dba2139347eb531da472bffb5d584ef0f4ea07b2779c2d53595fbf3e"
+    },
+    "sch/3.0.18/CEN-EN16931-UBL.sch": {
+      "url": "https://raw.githubusercontent.com/OpenPEPPOL/peppol-bis-invoice-3/3.0.18/rules/sch/CEN-EN16931-UBL.sch",
+      "sha256": "6e1d5833a68c99a0adc4b16c1fcdfa155c739eb3a731d971832c8ce98f86e56f"
+    },
+    "sch/3.0.18/PEPPOL-EN16931-UBL.sch": {
+      "url": "https://raw.githubusercontent.com/OpenPEPPOL/peppol-bis-invoice-3/3.0.18/rules/sch/PEPPOL-EN16931-UBL.sch",
+      "sha256": "fe5682b55dd8939522ca5d42e3f32e3b6d5be57cb9ea1735de53190bad44d75b"
+    },
+    "sch/3.0.20/CEN-EN16931-UBL.sch": {
+      "url": "https://raw.githubusercontent.com/OpenPEPPOL/peppol-bis-invoice-3/v3.0.20/rules/sch/CEN-EN16931-UBL.sch",
+      "sha256": "bdcbb7b702cce55c7f8c789bef0cb9bebf6d376140c1776e683bd6d9bc0ad331"
+    },
+    "sch/3.0.20/PEPPOL-EN16931-UBL.sch": {
+      "url": "https://raw.githubusercontent.com/OpenPEPPOL/peppol-bis-invoice-3/v3.0.20/rules/sch/PEPPOL-EN16931-UBL.sch",
+      "sha256": "5ddf3a2f6633147b20b7805df9902d825af1a984f10014fcee186d4170364b1d"
+    },
+    "skeleton/iso_abstract_expand.xsl": {
+      "url": "https://raw.githubusercontent.com/Schematron/schematron/2020-10-01/trunk/schematron/code/iso_abstract_expand.xsl",
+      "sha256": "c5267f124abf23eeb6669884e40a98607c055bfaa1f39e73b7d578feceeb6e46"
+    },
+    "skeleton/iso_dsdl_include.xsl": {
+      "url": "https://raw.githubusercontent.com/Schematron/schematron/2020-10-01/trunk/schematron/code/iso_dsdl_include.xsl",
+      "sha256": "43ff20a1afd89d8a744d1c0b8df94ac5559ffa6a820d1ffbf508d6431ee4fdd9"
+    },
+    "skeleton/iso_schematron_message_xslt2.xsl": {
+      "url": "https://raw.githubusercontent.com/Schematron/schematron/2020-10-01/trunk/schematron/code/iso_schematron_message_xslt2.xsl",
+      "sha256": "61ff7ffaf761de8bade30a35aeb4fc30f64327ae40a3a1a1251231bec1227f55"
+    },
+    "skeleton/iso_schematron_skeleton_for_saxon.xsl": {
+      "url": "https://raw.githubusercontent.com/Schematron/schematron/2020-10-01/trunk/schematron/code/iso_schematron_skeleton_for_saxon.xsl",
+      "sha256": "95f3195d9f437ea8ff5f75d1a27f4e68ae20b236fe0d4a217bb4209f498a10a3"
+    },
+    "skeleton/iso_svrl_for_xslt2.xsl": {
+      "url": "https://raw.githubusercontent.com/Schematron/schematron/2020-10-01/trunk/schematron/code/iso_svrl_for_xslt2.xsl",
+      "sha256": "0588d617924a0686255f6d182633d434c7986d561be8fcc3b363907d3f671b26"
+    },
+    "xsd/common/CCTS_CCT_SchemaModule-2.1.xsd": {
+      "url": "https://docs.oasis-open.org/ubl/os-UBL-2.1/xsd/common/CCTS_CCT_SchemaModule-2.1.xsd",
+      "sha256": "dd546e4809df86b6445589f69f0d6c9df162840ae386574ddfc1da7638103e15"
+    },
+    "xsd/common/UBL-CommonAggregateComponents-2.1.xsd": {
+      "url": "https://docs.oasis-open.org/ubl/os-UBL-2.1/xsd/common/UBL-CommonAggregateComponents-2.1.xsd",
+      "sha256": "939172ad8dd057cd403e7f763f6532184dd5ed4b9de24c42ebb35db4792ba613"
+    },
+    "xsd/common/UBL-CommonBasicComponents-2.1.xsd": {
+      "url": "https://docs.oasis-open.org/ubl/os-UBL-2.1/xsd/common/UBL-CommonBasicComponents-2.1.xsd",
+      "sha256": "bd4ad043ee1d9da1c7f8018dabf739cfafdfb59143d0d16b9ef769e6b7c408a7"
+    },
+    "xsd/common/UBL-CommonExtensionComponents-2.1.xsd": {
+      "url": "https://docs.oasis-open.org/ubl/os-UBL-2.1/xsd/common/UBL-CommonExtensionComponents-2.1.xsd",
+      "sha256": "ad7a4e490978adfbcfc5ec0bb20941cf11ac960ccf0c4de8791a7c731a8dbe87"
+    },
+    "xsd/common/UBL-CommonSignatureComponents-2.1.xsd": {
+      "url": "https://docs.oasis-open.org/ubl/os-UBL-2.1/xsd/common/UBL-CommonSignatureComponents-2.1.xsd",
+      "sha256": "3db472305f029bba5c1ae157bfd0178f715c3f9b94bd8e6c557dbce5e88da874"
+    },
+    "xsd/common/UBL-ExtensionContentDataType-2.1.xsd": {
+      "url": "https://docs.oasis-open.org/ubl/os-UBL-2.1/xsd/common/UBL-ExtensionContentDataType-2.1.xsd",
+      "sha256": "fcee77a11870208e6377ea6311b9f2a050bca24bdad8606ea02d71e9f9e72f8d"
+    },
+    "xsd/common/UBL-QualifiedDataTypes-2.1.xsd": {
+      "url": "https://docs.oasis-open.org/ubl/os-UBL-2.1/xsd/common/UBL-QualifiedDataTypes-2.1.xsd",
+      "sha256": "7dcb156e610239c97ae70940cf4653b88e48c3595bf5f56a2204a32e2893e6cf"
+    },
+    "xsd/common/UBL-SignatureAggregateComponents-2.1.xsd": {
+      "url": "https://docs.oasis-open.org/ubl/os-UBL-2.1/xsd/common/UBL-SignatureAggregateComponents-2.1.xsd",
+      "sha256": "17bb6b62d709b4fd81449a37655af36aa6a1276ad4fdb1b2e249a5ed4b7c2172"
+    },
+    "xsd/common/UBL-SignatureBasicComponents-2.1.xsd": {
+      "url": "https://docs.oasis-open.org/ubl/os-UBL-2.1/xsd/common/UBL-SignatureBasicComponents-2.1.xsd",
+      "sha256": "cef924d7ba3d1d8ade14469325cde1364f8c174e46f0198ec02da8e9e748a489"
+    },
+    "xsd/common/UBL-UnqualifiedDataTypes-2.1.xsd": {
+      "url": "https://docs.oasis-open.org/ubl/os-UBL-2.1/xsd/common/UBL-UnqualifiedDataTypes-2.1.xsd",
+      "sha256": "09052d406b4293e2a5f9c2bfee6df10ad4d8d5f0b36e24a6349d7f7936d89eb6"
+    },
+    "xsd/common/UBL-XAdESv132-2.1.xsd": {
+      "url": "https://docs.oasis-open.org/ubl/os-UBL-2.1/xsd/common/UBL-XAdESv132-2.1.xsd",
+      "sha256": "a4f726bcf8cc3f7d9ffa4dab99e005535a8e8b60dced1e5d94578d2e05afa96e"
+    },
+    "xsd/common/UBL-XAdESv141-2.1.xsd": {
+      "url": "https://docs.oasis-open.org/ubl/os-UBL-2.1/xsd/common/UBL-XAdESv141-2.1.xsd",
+      "sha256": "1fa4625e9cefcb7a9abb5ac1b64315547450031eece8a55bd584e4ba4b79dbc1"
+    },
+    "xsd/common/UBL-xmldsig-core-schema-2.1.xsd": {
+      "url": "https://docs.oasis-open.org/ubl/os-UBL-2.1/xsd/common/UBL-xmldsig-core-schema-2.1.xsd",
+      "sha256": "101909c9f06456d61ddcc4fb982f1d40dc357b439f393b1a2eb46e42acd60809"
+    },
+    "xsd/maindoc/UBL-Invoice-2.1.xsd": {
+      "url": "https://docs.oasis-open.org/ubl/os-UBL-2.1/xsd/maindoc/UBL-Invoice-2.1.xsd",
+      "sha256": "40fae8cb436f3a9506d7acce65ba162caef3b0bed4d5cbc0992b2153ded4edf4"
+    }
+  }
+}

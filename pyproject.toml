@@ -1,0 +1,45 @@
+[project]
+name = "peppol-intake"
+version = "0.1.0"
+description = "Turn messy supplier invoice PDFs into validated Peppol BIS Billing 3.0 UBL"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+dependencies = [
+    "lxml>=5.2",
+    "saxonche>=12.4",
+    "pydantic>=2.7",
+    "typer>=0.12",
+    "rich>=13.7",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.2", "ruff>=0.5"]
+
+[project.scripts]
+peppol-intake = "peppol_intake.cli:app"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/peppol_intake"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "phive: requires the Java phive reference validator (skipped when absent)",
+    "artefacts: requires fetched validation artefacts (skipped when absent)",
+]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.ruff.lint.per-file-ignores]
+# typer expects Argument/Option calls as parameter defaults.
+"src/peppol_intake/cli.py" = ["B008"]

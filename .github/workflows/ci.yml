@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python: ["3.11", "3.12"]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+
+      - name: Install
+        run: pip install -e ".[dev]"
+
+      # Fetching is a setup step, not a test step: it verifies every artefact
+      # against the SHA-256 checksums pinned in artefacts/MANIFEST.json, and fails
+      # the build if upstream changed under a pinned tag. The tests themselves
+      # never touch the network.
+      - name: Fetch validation artefacts
+        run: python scripts/fetch_artefacts.py
+
+      - name: Lint
+        run: ruff check .
+
+      - name: Test
+        run: pytest -q
