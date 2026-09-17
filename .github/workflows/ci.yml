@@ -31,6 +31,16 @@ jobs:
       - name: Fetch validation artefacts
         run: python scripts/fetch_artefacts.py
 
+      # Only the corpus tests need a browser; --with-deps installs the shared
+      # libraries headless Chromium needs on a bare Ubuntu runner.
+      - name: Install Chromium (Linux)
+        if: runner.os == 'Linux'
+        run: python -m playwright install --with-deps chromium
+
+      - name: Install Chromium (Windows)
+        if: runner.os == 'Windows'
+        run: python -m playwright install chromium
+
       - name: Lint
         run: ruff check .
 

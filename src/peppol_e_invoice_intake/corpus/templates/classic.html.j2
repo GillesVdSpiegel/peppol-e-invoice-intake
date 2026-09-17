@@ -1,0 +1,230 @@
+{#
+  Layout "classic": the conventional Belgian supplier invoice.
+
+  Letterhead top-left, customer block top-right, a bordered line table, a VAT
+  breakdown table, and a right-aligned totals stack. Deliberately tidy - this is
+  the easy end of the corpus, and the layouts that follow get progressively less
+  cooperative so the metrics can show where extraction starts to struggle.
+#}
+<!DOCTYPE html>
+<html lang="{{ invoice.language.value }}">
+<head>
+<meta charset="utf-8">
+<title>{{ L.invoice }} {{ invoice.number }}</title>
+<style>
+  @page { size: A4; margin: 18mm 16mm 20mm 16mm; }
+  * { box-sizing: border-box; }
+  body {
+    font-family: "Segoe UI", Arial, Helvetica, sans-serif;
+    font-size: 9.5pt;
+    color: #1a1a1a;
+    margin: 0;
+    line-height: 1.45;
+  }
+  .header { display: flex; justify-content: space-between; margin-bottom: 14mm; }
+  .supplier .name { font-size: 13pt; font-weight: 700; letter-spacing: .2px; }
+  .supplier .meta { color: #444; margin-top: 1.5mm; }
+  .doc-title {
+    text-align: right;
+    font-size: 20pt;
+    font-weight: 300;
+    letter-spacing: 3px;
+    color: #14508c;
+  }
+  .parties { display: flex; justify-content: space-between; gap: 12mm; margin-bottom: 10mm; }
+  .block-label {
+    text-transform: uppercase;
+    font-size: 7.5pt;
+    letter-spacing: 1px;
+    color: #7a7a7a;
+    border-bottom: .4pt solid #d5d5d5;
+    padding-bottom: 1mm;
+    margin-bottom: 2mm;
+  }
+  .customer { width: 78mm; }
+  .customer .name { font-weight: 700; }
+  .facts { width: 72mm; }
+  .facts table { width: 100%; border-collapse: collapse; }
+  .facts td { padding: .6mm 0; vertical-align: top; }
+  .facts td.k { color: #666; padding-right: 4mm; white-space: nowrap; }
+  .facts td.v { text-align: right; font-weight: 600; }
+
+  table.lines { width: 100%; border-collapse: collapse; margin-bottom: 6mm; }
+  table.lines thead th {
+    background: #14508c;
+    color: #fff;
+    font-size: 8pt;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    padding: 2mm 2.5mm;
+    text-align: left;
+  }
+  table.lines thead th.num { text-align: right; }
+  table.lines tbody td { padding: 2mm 2.5mm; border-bottom: .4pt solid #e2e2e2; }
+  table.lines tbody td.num { text-align: right; white-space: nowrap; }
+  table.lines tbody tr:nth-child(even) { background: #f7f9fb; }
+  .item-name { font-weight: 600; }
+  .item-desc { color: #666; font-size: 8.5pt; }
+  .line-discount { color: #666; font-size: 8.5pt; }
+
+  .summary { display: flex; justify-content: space-between; gap: 10mm; }
+  table.vat { border-collapse: collapse; font-size: 8.5pt; }
+  table.vat th, table.vat td { padding: 1.4mm 3mm; border-bottom: .4pt solid #e2e2e2; }
+  table.vat th { text-align: left; color: #666; font-weight: 600; }
+  table.vat td.num { text-align: right; white-space: nowrap; }
+  .exempt-note { font-style: italic; color: #555; }
+
+  table.totals { border-collapse: collapse; min-width: 68mm; }
+  table.totals td { padding: 1.5mm 0; }
+  table.totals td.k { color: #444; padding-right: 8mm; }
+  table.totals td.v { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  table.totals tr.grand td {
+    border-top: 1.1pt solid #14508c;
+    padding-top: 2.5mm;
+    font-size: 12pt;
+    font-weight: 700;
+    color: #14508c;
+  }
+
+  .payment { margin-top: 10mm; border-top: .4pt solid #d5d5d5; padding-top: 3mm; font-size: 8.5pt; }
+  .payment .row { display: flex; gap: 3mm; }
+  .payment .k { color: #666; min-width: 42mm; }
+  .note { margin-top: 4mm; font-size: 8.5pt; color: #444; }
+  tr { break-inside: avoid; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="supplier">
+    <div class="name">{{ invoice.supplier.name }}</div>
+    <div class="meta">
+      {{ invoice.supplier.street }}<br>
+      {{ invoice.supplier.postal_zone }} {{ invoice.supplier.city }}<br>
+      {% if invoice.supplier.vat_id %}{{ L.vat_number }}: {{ invoice.supplier.vat_id }}<br>{% endif %}
+      {% if invoice.supplier.contact_email %}{{ invoice.supplier.contact_email }}{% endif %}
+    </div>
+  </div>
+  <div class="doc-title">{{ L.invoice }}</div>
+</div>
+
+<div class="parties">
+  <div class="customer">
+    <div class="block-label">{{ L.bill_to }}</div>
+    <div class="name">{{ invoice.customer.name }}</div>
+    {{ invoice.customer.street }}<br>
+    {{ invoice.customer.postal_zone }} {{ invoice.customer.city }}<br>
+    {% if invoice.customer.vat_id %}{{ L.vat_number }}: {{ invoice.customer.vat_id }}{% endif %}
+  </div>
+  <div class="facts">
+    <table>
+      <tr><td class="k">{{ L.invoice_number }}</td><td class="v">{{ invoice.number }}</td></tr>
+      <tr><td class="k">{{ L.issue_date }}</td><td class="v">{{ d(invoice.issue_date) }}</td></tr>
+      {% if invoice.due_date %}
+      <tr><td class="k">{{ L.due_date }}</td><td class="v">{{ d(invoice.due_date) }}</td></tr>
+      {% endif %}
+      {% if invoice.delivery_date %}
+      <tr><td class="k">{{ L.delivery_date }}</td><td class="v">{{ d(invoice.delivery_date) }}</td></tr>
+      {% endif %}
+      {% if invoice.buyer_reference %}
+      <tr><td class="k">{{ L.buyer_reference }}</td><td class="v">{{ invoice.buyer_reference }}</td></tr>
+      {% endif %}
+      {% if invoice.order_reference %}
+      <tr><td class="k">{{ L.order_reference }}</td><td class="v">{{ invoice.order_reference }}</td></tr>
+      {% endif %}
+    </table>
+  </div>
+</div>
+
+<table class="lines">
+  <thead>
+    <tr>
+      <th style="width:8mm">{{ L.line }}</th>
+      <th>{{ L.description }}</th>
+      <th class="num" style="width:18mm">{{ L.quantity }}</th>
+      <th class="num" style="width:24mm">{{ L.unit_price }}</th>
+      <th class="num" style="width:14mm">{{ L.vat_rate }}</th>
+      <th class="num" style="width:26mm">{{ L.line_total }}</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for line in invoice.lines %}
+    <tr>
+      <td>{{ line.line_id }}</td>
+      <td>
+        <div class="item-name">{{ line.name }}</div>
+        {% if line.description %}<div class="item-desc">{{ line.description }}</div>{% endif %}
+        {% if line.discount %}
+        <div class="line-discount">{{ L.discount }}: -{{ m(line.discount) }}</div>
+        {% endif %}
+      </td>
+      <td class="num">{{ q(line.quantity) }}</td>
+      <td class="num">{{ m(line.unit_price) }}</td>
+      <td class="num">{{ r(line.vat_rate) }}</td>
+      <td class="num">{{ m(line.net_amount) }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<div class="summary">
+  <div>
+    <div class="block-label">{{ L.vat_breakdown }}</div>
+    <table class="vat">
+      <tr>
+        <th>{{ L.vat_rate }}</th>
+        <th style="text-align:right">{{ L.taxable }}</th>
+        <th style="text-align:right">{{ L.vat_amount }}</th>
+      </tr>
+      {% for subtotal in invoice.tax_subtotals %}
+      <tr>
+        <td>
+          {{ r(subtotal.rate) }}
+          {% if subtotal.category.value != 'S' %}
+          <span class="exempt-note">({{ vat_note(subtotal.category) }})</span>
+          {% endif %}
+        </td>
+        <td class="num">{{ m(subtotal.taxable_amount) }}</td>
+        <td class="num">{{ m(subtotal.tax_amount) }}</td>
+      </tr>
+      {% endfor %}
+    </table>
+    {% if invoice.exemption_reason %}
+    <div class="note">{{ invoice.exemption_reason }}</div>
+    {% endif %}
+  </div>
+
+  <table class="totals">
+    <tr><td class="k">{{ L.total_excl }}</td><td class="v">{{ m(invoice.tax_exclusive_amount) }}</td></tr>
+    <tr><td class="k">{{ L.total_vat }}</td><td class="v">{{ m(invoice.tax_amount) }}</td></tr>
+    <tr><td class="k">{{ L.total_incl }}</td><td class="v">{{ m(invoice.tax_inclusive_amount) }}</td></tr>
+    {% if invoice.prepaid_amount %}
+    <tr><td class="k">{{ L.prepaid }}</td><td class="v">-{{ m(invoice.prepaid_amount) }}</td></tr>
+    {% endif %}
+    <tr class="grand">
+      <td class="k">{{ L.payable }}</td>
+      <td class="v">{{ currency_symbol }} {{ m(invoice.payable_amount) }}</td>
+    </tr>
+  </table>
+</div>
+
+<div class="payment">
+  {% if invoice.iban %}
+  <div class="row"><div class="k">{{ L.iban }}</div><div>{{ invoice.iban }}</div></div>
+  {% endif %}
+  {% if invoice.payment_reference %}
+  <div class="row"><div class="k">{{ L.payment_reference }}</div><div>{{ invoice.payment_reference }}</div></div>
+  {% endif %}
+  {% if invoice.payment_terms %}
+  <div class="row"><div class="k">{{ L.payment_terms }}</div><div>{{ invoice.payment_terms }}</div></div>
+  {% endif %}
+  {% if invoice.supplier.legal_id %}
+  <div class="row"><div class="k">{{ L.enterprise_number }}</div><div>{{ invoice.supplier.legal_id }}</div></div>
+  {% endif %}
+</div>
+
+{% if invoice.note %}<div class="note">{{ invoice.note }}</div>{% endif %}
+
+</body>
+</html>
