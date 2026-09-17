@@ -27,7 +27,19 @@ PROFILE_ID = "urn:fdc:peppol.eu:2017:poacc:billing:01:1.0"
 INVOICE_TYPE_CODE = "380"
 
 
-def _cbc(parent: etree._Element, name: str, text: str | None = None, **attrs) -> etree._Element:
+def _cbc(
+    parent: etree._Element, name: str, text: str | None = None, **attrs
+) -> etree._Element | None:
+    """Add a cbc element, or nothing at all when the value is empty.
+
+    PEPPOL-EN16931-R008 forbids empty elements outright, so an emitter must never
+    write one. Omitting the element instead lets validation report the real
+    problem - a missing mandatory field - rather than the downstream symptom.
+    This matters for the phase 3 pipeline, where a field the document simply does
+    not carry arrives here as an empty string.
+    """
+    if text is not None and not str(text).strip():
+        return None
     element = etree.SubElement(parent, f"{{{CBC}}}{name}")
     if text is not None:
         element.text = text

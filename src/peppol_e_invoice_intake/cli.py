@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sys
+from decimal import Decimal
 from pathlib import Path
 
 import typer
@@ -12,6 +13,8 @@ from rich.table import Table
 from .corpus.build import DEFAULT_ROOT, CorpusBuildError, build, load_manifest
 from .corpus.catalogue import CATALOGUE
 from .corpus.render import LAYOUTS
+from .pipeline import Budget, BudgetExceeded, run
+from .pipeline.budget import DEFAULT_MODEL
 from .validation import ArtefactsMissing, Layer, ValidationResult, validate
 from .validation.artefacts import ORACLE_RULE_SETS, RULE_SETS
 from .validation.backends import BACKENDS, DEFAULT_BACKEND
@@ -130,9 +133,6 @@ def rules() -> None:
     console.print(f"Backends: {', '.join(sorted(BACKENDS))} (default: {DEFAULT_BACKEND})")
 
 
-if __name__ == "__main__":
-    app()
-
 
 corpus_app = typer.Typer(
     add_completion=False, help="Generate and inspect the synthetic test corpus."
@@ -237,3 +237,101 @@ def corpus_status(
         f"{manifest['documents']} documents from {manifest['base_invoices']} base invoices "
         f"({manifest['layouts_per_invoice']} layouts each) in {root}"
     )
+
+
+def _problem_table(result) -> Table:
+    table = Table(header_style="bold", title="Needs a person")
+    table.add_column("Kind", no_wrap=True)
+    table.add_column("Field", no_wrap=True)
+    table.add_column("Detail")
+    table.add_column("On the document", overflow="fold", max_width=24)
+    for problem in result.needs_human:
+        table.add_row(
+            problem.kind.value, problem.field, problem.detail, problem.printed or "-"
+        )
+    return table
+
+
+@app.command()
+def convert(
+    documents: list[Path] = typer.Argument(..., help="Invoice PDF(s) to convert."),
+    out: Path = typer.Option(Path("out"), "--out", "-o", help="Where to write the UBL."),
+    arm: str = typer.Option("vision", "--arm", help="vision (send the PDF) or text."),
+    model: str = typer.Option(DEFAULT_MODEL, "--model"),
+    budget_usd: float = typer.Option(
+        15.0, "--budget", help="Hard spend ceiling in USD for this run."
+    ),
+    no_repair: bool = typer.Option(False, "--no-repair", help="Skip the repair attempt."),
+) -> None:
+    """Convert invoice PDFs to validated Peppol BIS Billing 3.0 UBL.
+
+    This calls the Claude API and costs money. The ceiling is checked before every
+    request, so the run stops rather than overspending.
+    """
+    budget = Budget(limit_usd=Decimal(str(budget_usd)))
+    out.mkdir(parents=True, exist_ok=True)
+    failures = 0
+
+    for document in documents:
+        if not document.exists():
+            console.print(f"[bold red]MISSING[/] {document}")
+            failures += 1
+            continue
+        try:
+            result = run(
+                document,
+                arm=arm,
+                budget=budget,
+                model=model,
+                allow_repair=not no_repair,
+                workdir=out,
+            )
+        except BudgetExceeded as exc:
+            console.print(f"[bold yellow]{exc}[/]")
+            raise typer.Exit(3) from None
+        except Exception as exc:  # noqa: BLE001 - the CLI reports, it does not crash
+            console.print(f"[bold red]FAILED[/] {document.name}: {exc}")
+            failures += 1
+            continue
+
+        if result.error:
+            console.print(f"[bold red]FAILED[/] {document.name}: {result.error}")
+            failures += 1
+        else:
+            verdict = "[bold green]VALID[/]" if result.valid else "[bold red]INVALID[/]"
+            stage = (
+                "first attempt"
+                if result.valid_first_attempt
+                else "after repair"
+                if result.repaired_successfully
+                else "after repair attempt"
+                if result.repair_attempted
+                else "first attempt"
+            )
+            console.print(f"{verdict} {document.name} ({stage})")
+            if not result.valid:
+                failures += 1
+                for finding in result.validation.blocking:
+                    console.print(f"  [red]{finding.rule_id}[/] {finding.message}")
+            if not result.reconciles:
+                console.print(
+                    "  [yellow]totals do not reconcile with the document[/] - "
+                    "the emitted figures are computed, not the ones printed"
+                )
+            if result.needs_human:
+                console.print(_problem_table(result))
+
+        console.print(
+            f"  [dim]{result.summary()['usd_cents']:.2f} cents, "
+            f"{result.latency_ms} ms[/]"
+        )
+
+    summary = budget.summary()
+    console.print(
+        f"\nSpent ${summary['usd']:.4f} across {summary['requests']} request(s) "
+        f"of a ${summary['limit_usd']:.2f} ceiling."
+    )
+    raise typer.Exit(1 if failures else 0)
+
+if __name__ == "__main__":
+    app()
