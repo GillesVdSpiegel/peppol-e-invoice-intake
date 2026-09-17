@@ -6,8 +6,11 @@ readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
 dependencies = [
+    "jinja2>=3.1",
     "lxml>=5.2",
     "saxonche>=12.4",
+    "playwright>=1.44",
+    "pypdf>=4.2",
     "pydantic>=2.7",
     "typer>=0.12",
     "rich>=13.7",
@@ -31,6 +34,7 @@ testpaths = ["tests"]
 markers = [
     "phive: requires the Java phive reference validator (skipped when absent)",
     "artefacts: requires fetched validation artefacts (skipped when absent)",
+    "pdf: requires a Chromium install from playwright (skipped when absent)",
 ]
 
 [tool.ruff]

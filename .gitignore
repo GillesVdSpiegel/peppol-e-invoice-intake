@@ -3,10 +3,10 @@ artefacts/*
 !artefacts/MANIFEST.json
 !artefacts/NOTICE.md
 
-# Phase 5: real supplier invoices never enter version control.
-corpus/real/
-*.pdf
-!corpus/synthetic/**/*.pdf
+# The synthetic corpus is reproducible from code, so it is generated rather than
+# committed. Phase 5's real supplier invoices must never enter version control
+# at all - they are other people's commercial data.
+/corpus/
 
 .venv/
 __pycache__/

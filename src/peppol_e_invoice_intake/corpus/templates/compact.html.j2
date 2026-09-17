@@ -1,0 +1,150 @@
+{#
+  Layout "compact": dense, small type, hairline rules, stacked address blocks.
+
+  The realistic awkward case - a supplier fitting everything onto one tight page.
+  Type is small, whitespace is scarce, and the VAT summary sits beside the totals
+  in a single narrow strip, so the two blocks of figures are easy to confuse with
+  one another.
+#}
+<!DOCTYPE html>
+<html lang="{{ invoice.language.value }}">
+<head>
+<meta charset="utf-8">
+<title>{{ L.invoice }} {{ invoice.number }}</title>
+<style>
+  @page { size: A4; margin: 12mm 12mm 14mm 12mm; }
+  * { box-sizing: border-box; }
+  body {
+    font-family: Arial, "Liberation Sans", sans-serif;
+    font-size: 7.8pt;
+    color: #000;
+    margin: 0;
+    line-height: 1.28;
+  }
+  .hd { display: flex; justify-content: space-between; border-bottom: 1pt solid #000; padding-bottom: 1.5mm; }
+  .hd .co { font-weight: 700; font-size: 9.5pt; }
+  .hd .ttl { font-weight: 700; font-size: 9.5pt; letter-spacing: 1px; }
+  .sub { display: flex; justify-content: space-between; margin: 1.5mm 0 4mm 0; font-size: 7.2pt; }
+  .stack { margin-bottom: 3.5mm; }
+  .stack b { display: inline-block; min-width: 26mm; }
+  .addr { margin-bottom: 3.5mm; }
+  .addr .t { font-weight: 700; text-decoration: underline; }
+  table { border-collapse: collapse; }
+  table.l { width: 100%; margin-bottom: 3mm; }
+  table.l th {
+    text-align: left; font-size: 7pt; text-transform: uppercase;
+    border-bottom: .5pt solid #000; border-top: .5pt solid #000; padding: .8mm 1.5mm;
+  }
+  table.l th.n, table.l td.n { text-align: right; }
+  table.l td { padding: .8mm 1.5mm; border-bottom: .25pt solid #bbb; vertical-align: top; }
+  table.l td.n { white-space: nowrap; }
+  .d { font-size: 7pt; color: #333; }
+  .strip { display: flex; gap: 6mm; border-top: .5pt solid #000; padding-top: 2mm; }
+  table.v, table.t { font-size: 7.4pt; }
+  table.v th { text-align: left; padding: .5mm 3mm .5mm 0; font-size: 7pt; border-bottom: .25pt solid #999; }
+  table.v td { padding: .5mm 3mm .5mm 0; }
+  table.v td.n { text-align: right; }
+  table.t td { padding: .5mm 0; }
+  table.t td.k { padding-right: 6mm; }
+  table.t td.n { text-align: right; white-space: nowrap; }
+  table.t tr.g td { font-weight: 700; border-top: .5pt solid #000; padding-top: 1mm; font-size: 8.6pt; }
+  .pay { margin-top: 3mm; font-size: 7.2pt; }
+  .pay b { display: inline-block; min-width: 34mm; }
+  tr { break-inside: avoid; }
+</style>
+</head>
+<body>
+
+<div class="hd">
+  <div class="co">{{ invoice.supplier.name }}</div>
+  <div class="ttl">{{ L.invoice }} {{ invoice.number }}</div>
+</div>
+<div class="sub">
+  <div>
+    {{ invoice.supplier.street }}, {{ invoice.supplier.postal_zone }} {{ invoice.supplier.city }}
+    {% if invoice.supplier.vat_id %} &ndash; {{ L.vat_number }} {{ invoice.supplier.vat_id }}{% endif %}
+  </div>
+  <div>{{ L.issue_date }}: {{ d(invoice.issue_date) }}</div>
+</div>
+
+<div class="addr">
+  <div class="t">{{ L.bill_to }}</div>
+  {{ invoice.customer.name }} &mdash; {{ invoice.customer.street }}, {{ invoice.customer.postal_zone }} {{ invoice.customer.city }}
+  {% if invoice.customer.vat_id %}&mdash; {{ L.vat_number }} {{ invoice.customer.vat_id }}{% endif %}
+</div>
+
+<div class="stack">
+  {% if invoice.due_date %}<div><b>{{ L.due_date }}</b>{{ d(invoice.due_date) }}</div>{% endif %}
+  {% if invoice.buyer_reference %}<div><b>{{ L.buyer_reference }}</b>{{ invoice.buyer_reference }}</div>{% endif %}
+  {% if invoice.order_reference %}<div><b>{{ L.order_reference }}</b>{{ invoice.order_reference }}</div>{% endif %}
+  {% if invoice.delivery_date %}<div><b>{{ L.delivery_date }}</b>{{ d(invoice.delivery_date) }}</div>{% endif %}
+</div>
+
+<table class="l">
+  <thead>
+    <tr>
+      <th style="width:6mm">{{ L.line }}</th>
+      <th>{{ L.description }}</th>
+      <th class="n" style="width:15mm">{{ L.quantity }}</th>
+      <th class="n" style="width:10mm">&nbsp;</th>
+      <th class="n" style="width:20mm">{{ L.unit_price }}</th>
+      <th class="n" style="width:11mm">{{ L.vat_rate }}</th>
+      <th class="n" style="width:22mm">{{ L.line_total }}</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for line in invoice.lines %}
+    <tr>
+      <td>{{ line.line_id }}</td>
+      <td>
+        {{ line.name }}
+        {% if line.description %}<div class="d">{{ line.description }}</div>{% endif %}
+        {% if line.discount %}<div class="d">{{ L.discount }} &minus;{{ m(line.discount) }}</div>{% endif %}
+      </td>
+      <td class="n">{{ q(line.quantity) }}</td>
+      <td class="n">{{ line.unit_code }}</td>
+      <td class="n">{{ m(line.unit_price) }}</td>
+      <td class="n">{{ r(line.vat_rate) }}</td>
+      <td class="n">{{ m(line.net_amount) }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<div class="strip">
+  <table class="v">
+    <tr>
+      <th>{{ L.vat_rate }}</th><th>{{ L.taxable }}</th><th>{{ L.vat_amount }}</th>
+    </tr>
+    {% for subtotal in invoice.tax_subtotals %}
+    <tr>
+      <td>{{ r(subtotal.rate) }}{% if subtotal.category.value != 'S' %} {{ vat_note(subtotal.category) }}{% endif %}</td>
+      <td class="n">{{ m(subtotal.taxable_amount) }}</td>
+      <td class="n">{{ m(subtotal.tax_amount) }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+
+  <table class="t" style="margin-left:auto">
+    <tr><td class="k">{{ L.total_excl }}</td><td class="n">{{ m(invoice.tax_exclusive_amount) }}</td></tr>
+    <tr><td class="k">{{ L.total_vat }}</td><td class="n">{{ m(invoice.tax_amount) }}</td></tr>
+    <tr><td class="k">{{ L.total_incl }}</td><td class="n">{{ m(invoice.tax_inclusive_amount) }}</td></tr>
+    {% if invoice.prepaid_amount %}
+    <tr><td class="k">{{ L.prepaid }}</td><td class="n">&minus;{{ m(invoice.prepaid_amount) }}</td></tr>
+    {% endif %}
+    <tr class="g"><td class="k">{{ L.payable }}</td><td class="n">{{ currency_symbol }} {{ m(invoice.payable_amount) }}</td></tr>
+  </table>
+</div>
+
+{% if invoice.exemption_reason %}<div class="d" style="margin-top:2mm">{{ invoice.exemption_reason }}</div>{% endif %}
+
+<div class="pay">
+  {% if invoice.iban %}<div><b>{{ L.iban }}</b>{{ invoice.iban }}</div>{% endif %}
+  {% if invoice.payment_reference %}<div><b>{{ L.payment_reference }}</b>{{ invoice.payment_reference }}</div>{% endif %}
+  {% if invoice.payment_terms %}<div><b>{{ L.payment_terms }}</b>{{ invoice.payment_terms }}</div>{% endif %}
+  {% if invoice.supplier.legal_id %}<div><b>{{ L.enterprise_number }}</b>{{ invoice.supplier.legal_id }}</div>{% endif %}
+  {% if invoice.note %}<div style="margin-top:1.5mm">{{ invoice.note }}</div>{% endif %}
+</div>
+
+</body>
+</html>

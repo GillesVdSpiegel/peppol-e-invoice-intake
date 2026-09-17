@@ -9,6 +9,9 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
+from .corpus.build import DEFAULT_ROOT, CorpusBuildError, build, load_manifest
+from .corpus.catalogue import CATALOGUE
+from .corpus.render import LAYOUTS
 from .validation import ArtefactsMissing, Layer, ValidationResult, validate
 from .validation.artefacts import ORACLE_RULE_SETS, RULE_SETS
 from .validation.backends import BACKENDS, DEFAULT_BACKEND
@@ -129,3 +132,108 @@ def rules() -> None:
 
 if __name__ == "__main__":
     app()
+
+
+corpus_app = typer.Typer(
+    add_completion=False, help="Generate and inspect the synthetic test corpus."
+)
+app.add_typer(corpus_app, name="corpus")
+
+
+@corpus_app.command("build")
+def corpus_build(
+    root: Path = typer.Option(DEFAULT_ROOT, "--root", help="Where to write the corpus."),
+    layouts: int = typer.Option(3, "--layouts", min=1, help="Layouts per base invoice."),
+    full: bool = typer.Option(False, "--full", help="Render every layout for every invoice."),
+    skip_pdfs: bool = typer.Option(
+        False, "--skip-pdfs", help="Emit UBL and ground truth only; no browser needed."
+    ),
+) -> None:
+    """Generate UBL, ground truth and PDFs for every catalogue invoice.
+
+    Every document is validated before anything is written. An invalid one fails
+    the build: a corpus that is not actually Peppol-compliant would make the
+    published accuracy numbers meaningless.
+    """
+    rendered: list[str] = []
+    try:
+        documents = build(
+            root,
+            layouts_per_invoice=layouts,
+            full=full,
+            render_pdfs=not skip_pdfs,
+            on_progress=lambda doc: rendered.append(doc.key),
+        )
+    except ArtefactsMissing as exc:
+        console.print(f"[bold red]{exc}[/]")
+        raise typer.Exit(2) from None
+    except CorpusBuildError as exc:
+        console.print(f"[bold red]{exc}[/]")
+        raise typer.Exit(1) from None
+
+    by_layout: dict[str, int] = {}
+    by_language: dict[str, int] = {}
+    for document in documents:
+        by_layout[document.layout] = by_layout.get(document.layout, 0) + 1
+        by_language[document.language] = by_language.get(document.language, 0) + 1
+
+    console.print(
+        f"[bold green]Built[/] {len(documents)} documents from "
+        f"{len({d.key for d in documents})} base invoices into {root}"
+    )
+    table = Table(header_style="bold")
+    table.add_column("Layout")
+    table.add_column("Documents", justify="right")
+    for name, count in sorted(by_layout.items()):
+        table.add_row(name, str(count))
+    console.print(table)
+    console.print(
+        "Languages: "
+        + ", ".join(f"{lang} {count}" for lang, count in sorted(by_language.items()))
+    )
+    if skip_pdfs:
+        console.print("[yellow]PDFs skipped (--skip-pdfs)[/]")
+
+
+@corpus_app.command("list")
+def corpus_list() -> None:
+    """Show the catalogue of base invoices and the available layouts."""
+    table = Table(header_style="bold", title="Base invoices")
+    table.add_column("Key")
+    table.add_column("Lang", no_wrap=True)
+    table.add_column("Lines", justify="right")
+    table.add_column("VAT categories")
+    table.add_column("Payable", justify="right")
+    for key, invoice in CATALOGUE.items():
+        categories = sorted({s.category.value for s in invoice.tax_subtotals})
+        table.add_row(
+            key,
+            invoice.language.value,
+            str(len(invoice.lines)),
+            " ".join(categories),
+            f"{invoice.payable_amount:,.2f}",
+        )
+    console.print(table)
+
+    layouts = Table(header_style="bold", title="Layouts")
+    layouts.add_column("Name")
+    layouts.add_column("Description")
+    for layout in LAYOUTS:
+        layouts.add_row(layout.name, layout.description)
+    console.print(layouts)
+
+
+@corpus_app.command("status")
+def corpus_status(
+    root: Path = typer.Option(DEFAULT_ROOT, "--root", help="Corpus location."),
+) -> None:
+    """Report what is currently built on disk."""
+    try:
+        manifest = load_manifest(root)
+    except FileNotFoundError as exc:
+        console.print(f"[yellow]{exc}[/]")
+        raise typer.Exit(1) from None
+    console.print(
+        f"{manifest['documents']} documents from {manifest['base_invoices']} base invoices "
+        f"({manifest['layouts_per_invoice']} layouts each) in {root}"
+    )
