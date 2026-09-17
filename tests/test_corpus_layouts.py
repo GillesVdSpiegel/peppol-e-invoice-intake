@@ -162,3 +162,55 @@ def test_exempt_categories_render_in_every_layout():
     for layout in LAYOUTS:
         html = render_html(invoice, layout)
         assert "Intracommunautaire levering" in html
+
+
+#: A blunt width stress test. Every font in every layout is replaced with a wider
+#: one, which is what moving between platforms actually does: the monospace stack
+#: resolves to Consolas on Windows and DejaVu Sans Mono on Linux, and the
+#: difference was enough to push the buyer reference in "ledger" off the right
+#: page edge - green on Windows, red on Ubuntu, data silently missing either way.
+WIDE_FONT_OVERRIDE = '<style>*{font-family:"Courier New",monospace !important;}</style></head>'
+
+
+@pytest.fixture(scope="module")
+def rendered_wide(tmp_path_factory) -> dict[str, str]:
+    playwright = pytest.importorskip("playwright.sync_api")
+    directory = tmp_path_factory.mktemp("layouts-wide")
+    invoice = sample()
+    texts = {}
+    try:
+        with PdfRenderer() as renderer:
+            for layout in LAYOUTS:
+                html = render_html(invoice, layout).replace("</head>", WIDE_FONT_OVERRIDE, 1)
+                path = renderer.html_to_pdf(html, directory / f"{layout.name}.pdf")
+                texts[layout.name] = pdf_text(path)
+    except playwright.Error as exc:  # pragma: no cover - depends on local install
+        pytest.skip(f"Chromium not installed: {exc}")
+    return texts
+
+
+@pytest.mark.parametrize("layout", LAYOUTS, ids=lambda layout: layout.name)
+def test_no_field_is_lost_when_the_font_gets_wider(layout, rendered_wide: dict[str, str]):
+    """Layout widths must not depend on the font the platform happens to supply.
+
+    This is the platform-independent version of the bug CI caught: a field that
+    fits on one machine and falls off the page on another is a corpus defect, not
+    a cosmetic one, because ground truth would still claim the document shows it.
+    """
+    invoice = sample()
+    text = rendered_wide[layout.name]
+    expected = {
+        "BT-1 invoice number": invoice.number,
+        "BT-10 buyer reference": invoice.buyer_reference,
+        "BT-13 order reference": invoice.order_reference,
+        "BT-27 seller name": invoice.supplier.name,
+        "BT-44 buyer name": invoice.customer.name,
+        "BT-31 seller VAT": invoice.supplier.vat_id,
+        "BT-48 buyer VAT": invoice.customer.vat_id,
+        "BT-84 IBAN": invoice.iban,
+        "BT-109 tax exclusive": format_amount(invoice.tax_exclusive_amount, invoice.language),
+        "BT-110 total VAT": format_amount(invoice.tax_amount, invoice.language),
+        "BT-115 payable": format_amount(invoice.payable_amount, invoice.language),
+    }
+    missing = sorted(name for name, value in expected.items() if value not in text)
+    assert not missing, f"{layout.name} loses {missing} at a wider font"
