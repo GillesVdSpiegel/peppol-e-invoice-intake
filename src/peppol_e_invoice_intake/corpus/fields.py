@@ -171,19 +171,34 @@ DOCUMENT_FIELDS: tuple[Field, ...] = (
         Kind.AMOUNT,
     ),
     Field("BT-113", "Paid amount", "cac:LegalMonetaryTotal/cbc:PrepaidAmount", Kind.AMOUNT),
-    Field("BT-115", "Amount due for payment", "cac:LegalMonetaryTotal/cbc:PayableAmount", Kind.AMOUNT),
+    Field(
+        "BT-115",
+        "Amount due for payment",
+        "cac:LegalMonetaryTotal/cbc:PayableAmount",
+        Kind.AMOUNT,
+    ),
 )
 
 LINE_FIELDS: tuple[Field, ...] = (
     Field("BT-126", "Invoice line identifier", "cbc:ID"),
     Field("BT-129", "Invoiced quantity", "cbc:InvoicedQuantity", Kind.QUANTITY),
-    Field("BT-130", "Invoiced quantity unit of measure", "cbc:InvoicedQuantity/@unitCode", Kind.CODE),
+    Field(
+        "BT-130",
+        "Invoiced quantity unit of measure",
+        "cbc:InvoicedQuantity/@unitCode",
+        Kind.CODE,
+    ),
     Field("BT-131", "Invoice line net amount", "cbc:LineExtensionAmount", Kind.AMOUNT),
     Field("BT-136", "Invoice line allowance amount", "cac:AllowanceCharge/cbc:Amount", Kind.AMOUNT),
     Field("BT-146", "Item net price", "cac:Price/cbc:PriceAmount", Kind.AMOUNT),
     Field("BT-153", "Item name", "cac:Item/cbc:Name"),
     Field("BT-154", "Item description", "cac:Item/cbc:Description"),
-    Field("BT-151", "Item VAT category code", "cac:Item/cac:ClassifiedTaxCategory/cbc:ID", Kind.CODE),
+    Field(
+        "BT-151",
+        "Item VAT category code",
+        "cac:Item/cac:ClassifiedTaxCategory/cbc:ID",
+        Kind.CODE,
+    ),
     Field(
         "BT-152",
         "Item VAT rate",

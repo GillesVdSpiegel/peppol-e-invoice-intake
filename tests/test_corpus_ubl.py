@@ -70,7 +70,7 @@ FULL = build(
     note="Raamovereenkomst 2026/LOG/014.",
     iban="BE68539007547034",
     payment_reference="+++260/0000/14419+++",
-    payment_terms="Betaalbaar binnen 30 dagen",
+    payment_terms="binnen 30 dagen",
     language=Language.NL,
 )
 

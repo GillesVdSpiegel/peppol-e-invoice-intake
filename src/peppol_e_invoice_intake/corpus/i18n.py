@@ -37,7 +37,7 @@ LABELS: dict[Language, dict[str, str]] = {
         "line_total": "Totaal",
         "subtotal": "Subtotaal excl. BTW",
         "vat_breakdown": "BTW-overzicht",
-        "taxable": "Maatstaf",
+        "taxable": "Belastbare basis",
         "vat_amount": "BTW-bedrag",
         "total_excl": "Totaal excl. BTW",
         "total_vat": "Totaal BTW",
@@ -73,7 +73,7 @@ LABELS: dict[Language, dict[str, str]] = {
         "line_total": "Total",
         "subtotal": "Sous-total HTVA",
         "vat_breakdown": "Récapitulatif TVA",
-        "taxable": "Base",
+        "taxable": "Base imposable",
         "vat_amount": "Montant TVA",
         "total_excl": "Total HTVA",
         "total_vat": "Total TVA",
@@ -109,7 +109,7 @@ LABELS: dict[Language, dict[str, str]] = {
         "line_total": "Amount",
         "subtotal": "Subtotal excl. VAT",
         "vat_breakdown": "VAT summary",
-        "taxable": "Taxable",
+        "taxable": "Taxable amount",
         "vat_amount": "VAT amount",
         "total_excl": "Total excl. VAT",
         "total_vat": "Total VAT",
@@ -156,8 +156,112 @@ MONTHS_EN = (
 )
 
 
-def labels(language: Language) -> dict[str, str]:
-    return LABELS[language]
+#: Alternative wording for the same business terms, keyed by label then language.
+#: Real suppliers do not agree on any of this, and a pipeline that memorised one
+#: string would score better than it deserves. Layouts pick a variant by name.
+LABEL_VARIANTS: dict[str, dict[str, dict[Language, str]]] = {
+    "taxable": {
+        "maatstaf": {
+            Language.NL: "Maatstaf",
+            Language.FR: "Base",
+            Language.EN: "Taxable",
+        },
+        "maatstaf-van-heffing": {
+            Language.NL: "Maatstaf van heffing",
+            Language.FR: "Base d'imposition",
+            Language.EN: "Taxable base",
+        },
+        "bedrag-excl": {
+            Language.NL: "Bedrag excl. btw",
+            Language.FR: "Montant HTVA",
+            Language.EN: "Amount excl. VAT",
+        },
+    },
+    "payable": {
+        "te-voldoen": {
+            Language.NL: "TE VOLDOEN",
+            Language.FR: "MONTANT DÛ",
+            Language.EN: "BALANCE DUE",
+        },
+        "totaal-te-betalen": {
+            Language.NL: "Totaal te betalen",
+            Language.FR: "Total à payer",
+            Language.EN: "Total due",
+        },
+    },
+    "description": {
+        "artikel": {Language.NL: "Artikel", Language.FR: "Article", Language.EN: "Item"},
+        "prestatie": {
+            Language.NL: "Prestatie",
+            Language.FR: "Prestation",
+            Language.EN: "Service",
+        },
+    },
+    "quantity": {
+        "hoeveelheid": {
+            Language.NL: "Hoeveelheid",
+            Language.FR: "Quantité",
+            Language.EN: "Quantity",
+        },
+    },
+    "unit_price": {
+        "prijs-per-eenheid": {
+            Language.NL: "Prijs/eenheid",
+            Language.FR: "Prix/unité",
+            Language.EN: "Price/unit",
+        },
+        "stukprijs": {
+            Language.NL: "Stukprijs",
+            Language.FR: "Prix unitaire HT",
+            Language.EN: "Unit rate",
+        },
+    },
+    "line_total": {
+        "bedrag": {Language.NL: "Bedrag", Language.FR: "Montant", Language.EN: "Amount"},
+    },
+    "buyer_reference": {
+        "referentie": {
+            Language.NL: "Referentie",
+            Language.FR: "Référence",
+            Language.EN: "Reference",
+        },
+        "klantreferentie": {
+            Language.NL: "Klantreferentie",
+            Language.FR: "Référence client",
+            Language.EN: "Customer reference",
+        },
+    },
+    "vat_breakdown": {
+        "btw-detail": {
+            Language.NL: "BTW-detail",
+            Language.FR: "Détail TVA",
+            Language.EN: "VAT detail",
+        },
+    },
+}
+
+
+class UnknownLabelVariant(KeyError):
+    """Raised when a layout asks for wording that is not defined."""
+
+
+def labels(language: Language, variants: dict[str, str] | None = None) -> dict[str, str]:
+    """Labels for one language, with optional per-layout wording substituted in.
+
+    An unknown variant name is an error rather than a silent fallback: a typo in a
+    layout definition would otherwise produce a corpus that quietly uses the
+    default wording everywhere, which is the exact thing the variants exist to
+    prevent.
+    """
+    resolved = dict(LABELS[language])
+    for key, variant in (variants or {}).items():
+        try:
+            resolved[key] = LABEL_VARIANTS[key][variant][language]
+        except KeyError as exc:
+            raise UnknownLabelVariant(
+                f"No wording defined for label {key!r} variant {variant!r} in {language.value}"
+            ) from exc
+    return resolved
 
 
 def format_date(value: date, language: Language) -> str:

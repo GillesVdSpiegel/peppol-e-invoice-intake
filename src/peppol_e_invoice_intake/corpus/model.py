@@ -43,9 +43,12 @@ class VatCategory(StrEnum):
 
     @property
     def needs_exemption_reason(self) -> bool:
-        """Categories where EN 16931 requires a stated reason (BR-AE-10, BR-IC-10, ...)."""
+        """Categories where EN 16931 requires a stated reason (BR-AE-10, BR-IC-10, ...).
+
+        Zero rated is deliberately absent: BR-Z-10 says a zero-rated breakdown
+        shall NOT carry an exemption reason. The symmetry is tempting and wrong.
+        """
         return self in {
-            VatCategory.ZERO_RATED,
             VatCategory.EXEMPT,
             VatCategory.REVERSE_CHARGE,
             VatCategory.INTRA_COMMUNITY,
@@ -138,6 +141,8 @@ class Invoice(BaseModel):
 
     note: str | None = None
     delivery_date: date | None = None
+    #: BT-80. BR-IC-12 requires a deliver-to country on intra-community supplies.
+    delivery_country: str | None = None
     payment_means_code: str = "30"
     iban: str | None = None
     payment_reference: str | None = None

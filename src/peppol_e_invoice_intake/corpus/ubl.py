@@ -44,6 +44,19 @@ def _amount(parent: etree._Element, name: str, value: Decimal, currency: str) ->
     return _cbc(parent, name, f"{value:.2f}", currencyID=currency)
 
 
+def _price(parent: etree._Element, value: Decimal, currency: str) -> etree._Element:
+    """Item net price, printed at its real precision.
+
+    PEPPOL-EN16931-R120 checks that the line net amount equals quantity times
+    price. Forcing two decimals here silently rewrites a price of 16.665 to 16.67
+    and breaks that identity, so the price keeps however many decimals it has
+    (with two as the minimum, because 100 would look odd on an invoice).
+    """
+    exponent = -value.as_tuple().exponent
+    places = max(2, min(exponent, 4))
+    return _cbc(parent, "PriceAmount", f"{value:.{places}f}", currencyID=currency)
+
+
 def _rate(value: Decimal) -> str:
     """VAT percentages render without trailing zeros where possible (21, not 21.00)."""
     normalised = value.normalize()
@@ -121,7 +134,7 @@ def _line(parent: etree._Element, line: InvoiceLine, currency: str) -> None:
     _cbc(scheme, "ID", "VAT")
 
     price = _cac(node, "Price")
-    _amount(price, "PriceAmount", line.unit_price, currency)
+    _price(price, line.unit_price, currency)
 
 
 def build_tree(invoice: Invoice) -> etree._ElementTree:
@@ -148,10 +161,17 @@ def build_tree(invoice: Invoice) -> etree._ElementTree:
     _party(root, invoice.supplier, "AccountingSupplierParty")
     _party(root, invoice.customer, "AccountingCustomerParty")
 
-    # BR-IC-11 requires an actual delivery date on intra-community supplies.
-    if invoice.delivery_date:
+    # BR-IC-11 requires an actual delivery date on intra-community supplies, and
+    # BR-IC-12 requires a deliver-to country alongside it.
+    if invoice.delivery_date or invoice.delivery_country:
         delivery = _cac(root, "Delivery")
-        _cbc(delivery, "ActualDeliveryDate", invoice.delivery_date.isoformat())
+        if invoice.delivery_date:
+            _cbc(delivery, "ActualDeliveryDate", invoice.delivery_date.isoformat())
+        if invoice.delivery_country:
+            location = _cac(delivery, "DeliveryLocation")
+            address = _cac(location, "Address")
+            country = _cac(address, "Country")
+            _cbc(country, "IdentificationCode", invoice.delivery_country)
 
     if invoice.iban or invoice.payment_reference:
         means = _cac(root, "PaymentMeans")

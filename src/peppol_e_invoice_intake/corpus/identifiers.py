@@ -67,3 +67,24 @@ def structured_payment_reference(year: int, sequence: int) -> str:
     check = int(body) % 97 or 97
     digits = f"{body}{check:02d}"
     return f"+++{digits[:3]}/{digits[3:7]}/{digits[7:]}+++"
+
+
+def gln(base: int) -> str:
+    """Return a 13-digit GLN with a valid GS1 mod-10 check digit.
+
+    Peppol rule PEPPOL-COMMON-R040 validates any endpoint carrying scheme 0088,
+    so a made-up thirteen-digit number is rejected. Weights alternate 3 and 1 from
+    the right of the first twelve digits.
+    """
+    body = f"{base:012d}"
+    if len(body) != 12:
+        raise ValueError(f"base must fit in twelve digits, got {base}")
+    weighted = sum(int(digit) * (3 if index % 2 == 0 else 1)
+                   for index, digit in enumerate(reversed(body)))
+    return f"{body}{(10 - weighted % 10) % 10}"
+
+
+def is_valid_gln(value: str) -> bool:
+    if len(value) != 13 or not value.isdigit():
+        return False
+    return gln(int(value[:12])) == value

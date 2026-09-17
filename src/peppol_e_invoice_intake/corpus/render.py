@@ -12,7 +12,8 @@ Chromium alive for a whole batch.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from collections.abc import Mapping
+from dataclasses import dataclass, field
 from decimal import Decimal
 from pathlib import Path
 from types import TracebackType
@@ -36,18 +37,61 @@ CURRENCY_SYMBOLS = {"EUR": "€", "USD": "$", "GBP": "£"}
 
 @dataclass(frozen=True)
 class Layout:
-    """A visual style. Adding one means adding a template, not changing code."""
+    """A visual style. Adding one means adding a template, not changing code.
+
+    `label_variants` gives each layout its own wording for shared business terms.
+    Real suppliers do not agree on any of it, and without the variation a pipeline
+    could memorise one string per field and score better than it deserves.
+    """
 
     name: str
     template: str
     description: str
+    label_variants: Mapping[str, str] = field(default_factory=dict)
 
 
 LAYOUTS: tuple[Layout, ...] = (
     Layout(
         "classic",
         "classic.html.j2",
-        "Conventional Belgian invoice: letterhead left, totals stack right",
+        "Conventional Belgian invoice: letterhead left, totals stacked right",
+    ),
+    Layout(
+        "modern",
+        "modern.html.j2",
+        "Coloured header band, amount due stated up front, VAT summary as prose",
+        {"taxable": "bedrag-excl", "payable": "totaal-te-betalen", "description": "artikel"},
+    ),
+    Layout(
+        "compact",
+        "compact.html.j2",
+        "Dense single column, hairline rules, totals and VAT side by side at the foot",
+        {"taxable": "maatstaf", "quantity": "hoeveelheid", "line_total": "bedrag"},
+    ),
+    Layout(
+        "ledger",
+        "ledger.html.j2",
+        "Accounting style, tabular figures, amount column first, VAT in a footer band",
+        {
+            "taxable": "maatstaf-van-heffing",
+            "payable": "te-voldoen",
+            "unit_price": "stukprijs",
+            "vat_breakdown": "btw-detail",
+        },
+    ),
+    Layout(
+        "letterhead",
+        "letterhead.html.j2",
+        "Formal letter, recipient block placed for a window envelope, boxed totals",
+        {"description": "prestatie", "buyer_reference": "klantreferentie",
+         "unit_price": "prijs-per-eenheid"},
+    ),
+    Layout(
+        "minimal",
+        "minimal.html.j2",
+        "Almost plain text: no rules, no colour, weak column structure",
+        {"taxable": "bedrag-excl", "payable": "totaal-te-betalen",
+         "buyer_reference": "referentie", "line_total": "bedrag"},
     ),
 )
 
@@ -73,7 +117,7 @@ def render_html(invoice: Invoice, layout: Layout | str = "classic") -> str:
 
     return template.render(
         invoice=invoice,
-        L=labels(language),
+        L=labels(language, dict(resolved.label_variants)),
         layout=resolved,
         currency_symbol=CURRENCY_SYMBOLS.get(invoice.currency, invoice.currency),
         d=lambda value: format_date(value, language),
