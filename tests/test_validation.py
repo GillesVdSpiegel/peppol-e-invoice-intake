@@ -8,8 +8,8 @@ import pytest
 
 from broken_cases import CASES, VALID_BASE
 from conftest import requires_artefacts
-from peppol_intake.validation import Layer, validate
-from peppol_intake.validation.xsd import validate_xsd
+from peppol_e_invoice_intake.validation import Layer, validate
+from peppol_e_invoice_intake.validation.xsd import validate_xsd
 
 pytestmark = [pytest.mark.artefacts, requires_artefacts]
 

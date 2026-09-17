@@ -1,11 +1,11 @@
-# peppol-intake
+# peppol-e-invoice-intake
 
 Turn a messy supplier invoice PDF into a **Peppol BIS Billing 3.0 compliant UBL XML
 document**, validated against the official EN 16931 and Peppol rule sets, plus a
 structured report of everything that could not be mapped and why.
 
 ```console
-$ peppol-intake check tests/fixtures/valid/be-standard-vat.xml
+$ peppol-e-invoice-intake check tests/fixtures/valid/be-standard-vat.xml
 VALID tests/fixtures/valid/be-standard-vat.xml
 ```
 
@@ -120,9 +120,9 @@ network.
 ## Usage
 
 ```bash
-peppol-intake check invoice.xml
-peppol-intake check invoice.xml --backend official
-peppol-intake rules
+peppol-e-invoice-intake check invoice.xml
+peppol-e-invoice-intake check invoice.xml --backend official
+peppol-e-invoice-intake rules
 ```
 
 `check` exits non-zero if any document is invalid, so it composes in a shell

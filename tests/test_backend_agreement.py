@@ -18,8 +18,8 @@ import pytest
 
 from broken_cases import CASES, VALID_BASE
 from conftest import requires_oracle
-from peppol_intake.validation.artefacts import ORACLE_RULE_SETS
-from peppol_intake.validation.backends import get_backend
+from peppol_e_invoice_intake.validation.artefacts import ORACLE_RULE_SETS
+from peppol_e_invoice_intake.validation.backends import get_backend
 
 pytestmark = [pytest.mark.artefacts, requires_oracle]
 

@@ -9,7 +9,7 @@ from typer.testing import CliRunner
 
 from broken_cases import CASES_BY_ID, VALID_BASE
 from conftest import requires_artefacts
-from peppol_intake.cli import app
+from peppol_e_invoice_intake.cli import app
 
 pytestmark = [pytest.mark.artefacts, requires_artefacts]
 

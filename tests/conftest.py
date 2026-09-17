@@ -8,7 +8,7 @@ import pytest
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "src"))
 
-from peppol_intake.validation.artefacts import (  # noqa: E402
+from peppol_e_invoice_intake.validation.artefacts import (  # noqa: E402
     ORACLE_RULE_SETS,
     RULE_SETS,
     artefacts_available,

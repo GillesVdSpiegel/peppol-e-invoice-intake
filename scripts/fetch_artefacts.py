@@ -90,7 +90,7 @@ XSD_ROOTS = ["maindoc/UBL-Invoice-2.1.xsd"]
 
 
 def _get(url: str) -> bytes:
-    req = urllib.request.Request(url, headers={"User-Agent": "peppol-intake/0.1"})
+    req = urllib.request.Request(url, headers={"User-Agent": "peppol-e-invoice-intake/0.1"})
     with urllib.request.urlopen(req, timeout=120) as resp:  # noqa: S310 - pinned https
         return resp.read()
 

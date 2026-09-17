@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from peppol_intake.validation.findings import Layer, Severity
-from peppol_intake.validation.svrl import parse_svrl
+from peppol_e_invoice_intake.validation.findings import Layer, Severity
+from peppol_e_invoice_intake.validation.svrl import parse_svrl
 
 SVRL = """<?xml version="1.0"?>
 <svrl:schematron-output xmlns:svrl="http://purl.oclc.org/dsdl/svrl">

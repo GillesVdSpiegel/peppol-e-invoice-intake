@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from peppol_intake.validation.findings import (
+from peppol_e_invoice_intake.validation.findings import (
     Layer,
     Severity,
     ValidationFinding,

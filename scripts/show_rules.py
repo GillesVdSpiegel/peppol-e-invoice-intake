@@ -16,7 +16,7 @@ sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT / "tests"))
 
 from broken_cases import CASES  # noqa: E402
-from peppol_intake.validation import validate  # noqa: E402
+from peppol_e_invoice_intake.validation import validate  # noqa: E402
 
 
 def main() -> int:
