@@ -1,298 +1,206 @@
 # peppol-e-invoice-intake
 
-Turn a messy supplier invoice PDF into a **Peppol BIS Billing 3.0 compliant UBL XML
-document**, validated against the official EN 16931 and Peppol rule sets, plus a
-structured report of everything that could not be mapped and why.
+[![CI](https://github.com/GillesVdSpiegel/peppol-e-invoice-intake/actions/workflows/ci.yml/badge.svg)](https://github.com/GillesVdSpiegel/peppol-e-invoice-intake/actions/workflows/ci.yml)
 
-```console
-$ peppol-e-invoice-intake check tests/fixtures/valid/be-standard-vat.xml
-VALID tests/fixtures/valid/be-standard-vat.xml
+**Turns a supplier invoice PDF into a Peppol BIS Billing 3.0 e-invoice, validated
+against the official EN 16931 and Peppol rule sets - and tells a person exactly what
+it could not map, instead of guessing.**
+
+Since 1 January 2026, Belgian B2B invoices must be structured e-invoices; a PDF no
+longer satisfies the law. This is the intake step for the PDFs that still arrive.
+
+A French reverse-charge invoice goes in:
+
+<img src="docs/images/invoice.png" alt="A French reverse-charge supplier invoice" width="520">
+
+and validated UBL comes out, for about three cents:
+
+![Terminal: convert produces a valid invoice for 2.89 cents in 8.9 seconds, and check confirms it](docs/images/terminal.svg)
+
+The part worth looking at in the output - the model read *"Autoliquidation"*, and
+the pipeline turned it into the right VAT category with its legal reason, plus a
+Peppol address that no paper invoice ever prints:
+
+```xml
+<cac:TaxCategory>
+  <cbc:ID>AE</cbc:ID>                              <!-- reverse charge -->
+  <cbc:Percent>0</cbc:Percent>
+  <cbc:TaxExemptionReason>Autoliquidation - cocontractant, article 20 de l'AR n° 1</cbc:TaxExemptionReason>
+  ...
+<cbc:EndpointID schemeID="0208">0223344577</cbc:EndpointID>   <!-- derived from the VAT number -->
 ```
 
-Since 1 January 2026, structured e-invoicing has been mandatory for domestic B2B
-transactions between Belgian VAT-registered businesses, based on EN 16931 with
-Peppol BIS Billing 3.0 UBL as the reference format. A PDF alone no longer satisfies
-the legal requirement, which leaves a lot of Belgian SMEs holding PDFs that need to
-become UBL. This project is about that intake step.
+## Results
+
+Measured on 50 held-out documents: synthetic invoices that nothing was tuned on, in
+six visual layouts and three languages. Raw figures:
+[docs/results/holdout-50-summary.json](docs/results/holdout-50-summary.json).
+
+| Metric | Synthetic (held-out, n=50) | Real invoices |
+|---|---|---|
+| Per-field extraction accuracy | **99.9%** (3,427 of 3,429 fields) | pending |
+| Fields invented | **0** | pending |
+| Valid on first attempt | 96% (48 / 50) | pending |
+| Valid after one repair attempt | 96% (48 / 50) | pending |
+| Cost per invoice | **3.1 ¢** median, 3.7 ¢ mean | pending |
+| Latency per invoice | **8.5 s** median | pending |
+
+**Read this with the caveats, because they matter more than the headline.**
+The two failures are one invoice, rendered twice, that is invalid *by design*: a
+Swiss buyer whose Peppol address cannot be derived from anything printed, so the
+pipeline flags it for a person rather than inventing one - and it did, both times.
+The synthetic corpus is clean and digitally generated, and at 99.9% it has hit its
+ceiling: it can no longer tell a good pipeline from a better one. Held out by
+document, not by invoice - each base invoice also appears in the tuning sample in
+a different layout. The real-invoice column is the number that counts.
+
+## How it works
+
+```mermaid
+flowchart LR
+    A[Invoice PDF] --> B[Claude reads<br/>what is printed]
+    B --> C[Code computes<br/>totals and VAT]
+    C --> D[UBL XML]
+    D --> E{EN 16931 +<br/>Peppol rules}
+    B -. printed totals .-> F{Reconcile}
+    C --> F
+    E -- fails --> G[One repair:<br/>re-read the page]
+    F -- disagrees --> G
+    G --> C
+    E -- passes --> H[Valid UBL +<br/>report for a person]
+```
+
+Three decisions shape everything:
+
+- **The model reads; the code computes.** Claude returns only what is *printed*.
+  Totals, VAT breakdown and rounding are computed deterministically, so the
+  EN 16931 arithmetic rules hold by construction. That creates a trap - recompute
+  everything and a misread quantity becomes a *valid invoice for the wrong amount*,
+  invisible to validation - so the printed totals are extracted too and reconciled
+  against the computed ones. It also means the validation pass rate says little:
+  reconciliation is the check that catches a misreading, so it triggers the repair
+  too.
+  [Decision record](docs/decisions/0002-extract-then-compute.md).
+- **One repair attempt, never a loop.** An unbounded loop converges on something
+  that validates, which is not the same as something that is right. The repair
+  re-reads the page at a higher effort, is shown described problems rather than
+  raw validator output, is told not to invent values, and is discarded if it is no
+  better than the first reading.
+- **The validator is verified, not trusted.** Every number above rests on the rule
+  engine being correct, so it runs two independent backends and a test asserts
+  they agree on every fixture. [Decision record](docs/decisions/0001-dual-backend.md).
+
+Cost is kept low deliberately: the first reading runs at low effort (reading an
+invoice is transcription, not reasoning), only documents that fail a check pay for
+a careful second look, and the roughly 4,000-token prompt and schema are cached.
+
+## What broke, and what it taught me
+
+Every one of these was found by testing against the real thing, not by reading code.
+
+- **The API rejected the first real request outright** - "the compiled grammar is
+  too large". Structured outputs compile the JSON schema into a grammar, and 38
+  nullable fields meant 38 unions. Absence now travels as an empty string. Found by
+  a one-invoice smoke test that cost nothing, before any batch run.
+- **A truncated response crashed the run and went unbilled in my accounting.** The
+  SDK parsed half-finished JSON mid-stream and raised before the stop reason
+  arrived, so the spend cap undercounted exactly when something went wrong. Found by
+  driving the real SDK through a mock HTTP transport, which the fake client used by
+  the other tests could never have caught.
+- **The model found a bug in my test data.** On the first evaluation it flagged that
+  an invoice's printed unit prices did not reproduce its line totals. It was right:
+  my templates printed `16,66` where the ground truth said `16.665`. Eight of the
+  nine misses in that run were corpus defects, not reading errors, and the ninth
+  was the designed-in Swiss case. A new audit now
+  renders every invoice in every layout and fails if the ground truth claims
+  anything the page does not show.
+- **A layout silently dropped totals off the page - on Linux only.** A wider
+  monospace font pushed amounts past the page edge; the HTML was right and the PDF
+  rendered without error. Caught because CI runs on Windows and Ubuntu.
+- **Six of my own twenty "known-good" invoices were invalid.** Among them, an
+  exemption reason on zero-rated lines, which BR-Z-10 forbids. Caught because the
+  corpus builder refuses to write any invoice the validator rejects.
 
 ## What this is not
 
-- **It does not transmit anything over the Peppol network.** That needs a paid
-  Access Point and a registered business identity. The deliverable here is
-  network-ready UBL, not a sent invoice.
-- **There is no hosted UI.** A CLI is the interface.
-- **v1 handles invoices only** - no credit notes, no self-billing, and no
-  non-Belgian national extensions.
+- **It does not send anything over the Peppol network.** That needs a paid Access
+  Point and a registered business identity; the output is network-ready UBL.
+- **No hosted UI** - it is a CLI.
+- **Invoices only** - no credit notes, self-billing or non-Belgian extensions.
 
-## Status
-
-| Phase | What it delivers | State |
-|---|---|---|
-| 1 | Validator harness: XSD + EN 16931 + Peppol, dual backend, fixtures, CI | **Done** |
-| 2 | Test corpus: known-good UBL rendered to PDFs with perfect ground truth | **Done** |
-| 3 | Extraction and mapping pipeline with a single capped repair attempt | **Done** (unmeasured) |
-| 4 | Published accuracy, cost and latency metrics | Not started |
-| 5 | Evaluation on real supplier invoices, reported separately | Not started |
-
-## Metrics
-
-Not yet measured. This table is filled in by Phase 4 and stays empty until then -
-a project that publishes numbers it has not measured is worse than one that
-publishes none.
-
-| Metric | Synthetic corpus | Real invoices |
-|---|---|---|
-| Per-field extraction accuracy | - | - |
-| Documents valid on first attempt | - | - |
-| Documents valid after one repair attempt | - | - |
-| Token cost per invoice | - | - |
-| Median latency per invoice | - | - |
-
-## The pipeline
-
-```bash
-peppol-e-invoice-intake convert invoice.pdf --out out/
-```
-
-    extract -> map -> emit -> validate -> (one repair attempt) -> emit -> validate
-
-**The model reads; the code computes.** The model returns what is *printed* -
-line items, parties, dates, identifiers, and the totals as they appear on the
-page - and is explicitly told not to calculate anything. Deterministic code then
-builds the invoice using the same arithmetic the corpus was generated with, so
-BR-CO-10 through BR-CO-17 are satisfied by construction rather than by the model
-getting the sums right. Every number crosses the boundary as a string and is
-parsed into `Decimal`, because JSON's only numeric type is a float and those
-rules are exact-equality checks.
-
-That trade creates a specific danger, and the pipeline is built around it: if
-totals are always recomputed, **a misread quantity produces a perfectly valid
-invoice for the wrong amount**. Validation would never notice, because it only
-ever sees the computed, self-consistent numbers. So the printed totals are
-extracted too and compared against the computed ones. `PipelineResult` reports
-`valid` and `reconciles` separately, and the second is the one that catches this.
-
-Full reasoning, including what it costs:
-[docs/decisions/0002-extract-then-compute.md](docs/decisions/0002-extract-then-compute.md).
-
-### The repair attempt
-
-Capped at one, deliberately. An unbounded loop converges on something that
-validates, which is not the same as something that is right - the cheapest way to
-satisfy a rule is often to drop the offending field. One attempt keeps "passed
-after repair" a meaningful number rather than a measure of how long we were
-willing to wait.
-
-The repair edits the *extraction*, never the XML: a validation failure is evidence
-the reading was wrong. The model is shown described problems - business term, what
-the rule requires, where to look - never raw SVRL. It is told not to invent a
-value to satisfy a rule, and a repair that validates no better than the original
-is discarded rather than kept.
-
-### Two arms
-
-| Arm | Sends | Trade |
-|---|---|---|
-| `vision` | The PDF itself | Sees layout, columns and rules; costs more |
-| `text` | Only the PDF text layer | Much cheaper; loses the spatial information that distinguishes a quantity from a unit price |
-
-Both are kept so Phase 4 can report the cost/accuracy tradeoff rather than assert
-it. A scanned invoice has no text layer, which the text arm reports as a failure
-rather than hallucinating around.
-
-### Spend is measured and capped
-
-Cost per invoice is a published metric, so it is measured rather than estimated.
-The same accounting is the guard: the ceiling is checked *before* every request,
-so a misbehaving loop stops instead of running up a bill.
-
-```bash
-peppol-e-invoice-intake convert invoices/*.pdf --budget 5.00
-```
-
-### What the pipeline will not do
-
-Anything it cannot map confidently is surfaced, not guessed. The clearest case:
-no invoice prints a Peppol electronic address (BT-34 / BT-49), so it is derived -
-scheme 0208 from a Belgian enterprise number, the country's VAT scheme otherwise.
-When nothing printed on the page supports one, the document is flagged for a
-person instead of being given an invented identifier, and it fails validation for
-an honest reason.
-
-## Validation harness
-
-Three layers run in order; each finding is tagged with the layer that produced it,
-because Peppol rejects things core EN 16931 accepts and the distinction matters
-when reporting where documents fail.
-
-1. **UBL 2.1 XSD** - structural. A schema-invalid document short-circuits the rest:
-   Schematron over a broken tree describes the damage, not the cause.
-2. **EN 16931** - the CEN/TC 434 `BR-*` rules.
-3. **Peppol BIS Billing 3.0** - the `PEPPOL-*` rules, including Belgian specifics
-   such as `PEPPOL-COMMON-R043`, the mod-97 check on 0208 enterprise numbers.
-
-Everything reduces to one `ValidationFinding` type (layer, rule id, severity,
-message, location, failed test). That type is also the contract Phase 3's repair
-loop consumes - the model is handed described problems, never raw validator output.
-
-### Two backends, and why
-
-| Backend | Runs | Role |
-|---|---|---|
-| `saxon` | Stylesheets this project compiles from Schematron source via the ISO skeleton | Default; what the pipeline uses |
-| `official` | The stylesheets OpenPEPPOL compiled and ships | Oracle |
-
-`tests/test_backend_agreement.py` asserts the two produce identical findings for
-every fixture. Currently **15/15 documents agree**. Without that test, "our harness
-is correct" is an assumption; with it, it is a measurement - and every accuracy
-number this project will publish rests on that layer being right.
-
-The trade-off, and what this does *not* prove, is written up in
-[docs/decisions/0001-dual-backend.md](docs/decisions/0001-dual-backend.md).
-
-## The test corpus
-
-Phase 2 inverts the usual problem. Instead of collecting invoice PDFs and
-labelling them by hand, the corpus starts from a model, emits a UBL document and
-a PDF from the same source, and gets perfect field-level ground truth for free.
-
-```bash
-peppol-e-invoice-intake corpus build      # 60 documents in about 25 seconds
-peppol-e-invoice-intake corpus list       # what is in the catalogue
-```
-
-**20 base invoices x 3 layouts = 60 documents.** Ten invoices are written in
-Dutch, six in French and four in English - language belongs to the invoice, not
-to the render, because a Dutch-authored invoice shown with French column headings
-is not a document any supplier would send. Flemish suppliers invoice in Dutch,
-Walloon suppliers in French, exporters in English.
-
-The catalogue is chosen for what breaks extraction, not for visual variety:
-several VAT rates on one document, reverse charge, intra-community supply,
-export, exempt and zero-rated supplies, line discounts, a prepaid amount, 42 line
-items running past a page break, fractional quantities in hours and kilograms,
-amounts from EUR 0.03 to EUR 584,180.50, and prices carrying a third decimal so
-the arithmetic lands on a half cent.
-
-### Six layouts
-
-| Layout | What makes it different |
-|---|---|
-| `classic` | Conventional Belgian invoice, letterhead left, totals stacked right |
-| `modern` | Coloured header band, amount due stated *before* the line detail, VAT summary as prose |
-| `compact` | Dense 7.8pt type, hairline rules, VAT and totals side by side |
-| `ledger` | Monospaced accounting style with the **amount column first** |
-| `letterhead` | Formal letter, window-envelope address block, facts in a subject line |
-| `minimal` | Near plain text: no rules, no colour, columns held apart by whitespace alone |
-
-Each layout also uses **different wording for the same business terms** - the VAT
-base is "Belastbare basis" on one and "Maatstaf" or "Bedrag excl. btw" on others.
-Without that, a pipeline could memorise one string per field and score better
-than it deserves.
-
-The PDFs print Belgian conventions (`02/03/2026`, `1.520,50`) while the ground
-truth stays canonical (`2026-03-02`, `1520.50`). Normalising that gap is part of
-what Phase 3 has to do, so the corpus does not hand it over.
-
-### Two things that keep the corpus honest
-
-**Every generated document is validated before anything is written.** An invalid
-invoice fails the build rather than landing on disk with a warning. Six of the
-twenty failed the first time they were run - a zero-rated invoice carrying an
-exemption reason that BR-Z-10 forbids, intra-community supplies missing the
-deliver-to country, VAT numbers labelled as GLNs, and prices rounded to two
-decimals so the line total no longer matched quantity times price. All six were
-bugs in this code, caught by Phase 1.
-
-**Every layout is rendered and read back.** `tests/test_corpus_layouts.py` renders
-each layout to PDF, extracts the text, and asserts every total, line amount and
-identifier is actually present. This exists because the `ledger` layout once
-pushed three total amounts off the page with a CSS leader: the HTML was correct,
-the PDF rendered without error, and the document was quietly missing data. A
-figure clipped out of a PDF becomes ground truth asserting something the document
-does not show.
-
-Identifiers are computed, not invented: 0208 enterprise numbers satisfy
-`PEPPOL-COMMON-R043`'s mod-97 check, GLNs satisfy `PEPPOL-COMMON-R040`'s GS1
-check digit, and IBANs carry correct Belgian national and ISO 13616 check digits.
-
-Sample output: [Dutch, classic](docs/samples/classic-nl.pdf) ·
-[French reverse charge, letterhead](docs/samples/letterhead-fr.pdf) ·
-[English intra-community, ledger](docs/samples/ledger-en.pdf)
-
-The corpus is generated rather than committed, so `corpus/` is gitignored.
-
-## Validation fixtures
-
-One hand-authored valid Belgian invoice, plus 14 deliberately broken variants
-generated from it by a single declared mutation each
-([tests/broken_cases.py](tests/broken_cases.py)). Variants are generated rather
-than committed so the base and its broken siblings cannot drift apart.
-
-Each case pins the rule IDs it is expected to trip, captured from observed
-validator output rather than from assumptions about the rule text. A fixture that
-starts tripping a *different* rule fails the suite exactly as loudly as one that
-stops failing at all.
-
-Covered: missing `CustomizationID` / `ProfileID`, missing buyer and seller
-`EndpointID`, missing `BuyerReference`, four distinct flavours of tax and total
-arithmetic that does not reconcile, invalid country / currency / invoice type
-codes, a malformed Belgian enterprise number, and a line item with no name.
-
-## Setup
+## Running it
 
 Requires Python 3.11+.
 
 ```bash
 python -m venv .venv
-.venv/Scripts/activate
+.venv/Scripts/activate            # macOS / Linux: source .venv/bin/activate
 pip install -e ".[dev]"
 python scripts/fetch_artefacts.py
-python -m playwright install chromium     # only needed to render corpus PDFs
-pytest
+python -m playwright install chromium
+pytest                            # 395 tests, no network, no API spend
 ```
-
-On macOS or Linux, activate with `source .venv/bin/activate` instead.
-
-`fetch_artefacts.py` downloads the rule sets pinned in
-[artefacts/MANIFEST.json](artefacts/MANIFEST.json) and verifies every file against
-a SHA-256 checksum. The artefacts are fetched rather than committed because not
-every upstream carries a licence permitting redistribution - see
-[artefacts/NOTICE.md](artefacts/NOTICE.md). Tests themselves never touch the
-network.
-
-## Usage
 
 ```bash
-peppol-e-invoice-intake check invoice.xml
-peppol-e-invoice-intake check invoice.xml --backend official
-peppol-e-invoice-intake rules
-
-peppol-e-invoice-intake corpus build      # generate the test corpus
-peppol-e-invoice-intake corpus list       # base invoices and layouts
-peppol-e-invoice-intake corpus status     # what is built on disk
-
-peppol-e-invoice-intake convert x.pdf     # PDF to validated UBL (calls the API)
+peppol-e-invoice-intake convert invoice.pdf        # PDF -> validated UBL (calls the API)
+peppol-e-invoice-intake check invoice.xml          # validate any UBL invoice
+peppol-e-invoice-intake corpus build               # generate the 60-document test corpus
+peppol-e-invoice-intake eval --sample 10           # measure against ground truth (calls the API)
 ```
 
-`convert` and `eval` are the only commands that cost money. They read
-`ANTHROPIC_API_KEY` from a `.env` file in the project folder:
+`convert` and `eval` read `ANTHROPIC_API_KEY` from a gitignored `.env`
+(`cp .env.example .env`). The key is loaded only into the CLI's own process, so
+your shell - and any tool that changes its billing when that variable is set -
+never sees it. Every paid run has a hard spend ceiling, checked before each request.
 
-```bash
-cp .env.example .env      # then put your key after the equals sign
-```
+<details>
+<summary><b>The validation harness</b></summary>
 
-`.env` is gitignored, and a test asks git itself to confirm it stays that way.
-The key is loaded into the CLI's own process only when a paid command runs, so
-your shell never holds it - which matters because an `ANTHROPIC_API_KEY` in the
-environment silently switches tools such as Claude Code to per-token billing.
-Only that one variable is read from the file. A key already set in the
-environment takes precedence, and an `ant auth login` profile works too.
+Three layers run in order, and each finding is tagged with the layer that produced
+it, because Peppol rejects things core EN 16931 accepts:
 
-`check` exits non-zero if any document is invalid, so it composes in a shell
-pipeline or a CI step.
+1. **UBL 2.1 XSD** - structural; a schema-invalid document short-circuits the rest.
+2. **EN 16931** - the CEN/TC 434 `BR-*` rules.
+3. **Peppol BIS Billing 3.0** - the `PEPPOL-*` rules, including Belgian specifics
+   such as `PEPPOL-COMMON-R043`, the mod-97 check on enterprise numbers.
+
+| Backend | Runs | Role |
+|---|---|---|
+| `saxon` | Stylesheets compiled here from the Schematron source | Default |
+| `official` | The stylesheets OpenPEPPOL compiled and ships | Oracle |
+
+A test asserts both backends report identical findings for every fixture. The rule
+sets are fetched and SHA-256 verified rather than committed, because not every
+upstream licence permits redistribution - see [artefacts/NOTICE.md](artefacts/NOTICE.md).
+Fourteen deliberately broken fixtures each pin the exact rule IDs they must trip.
+</details>
+
+<details>
+<summary><b>The synthetic corpus</b></summary>
+
+Rather than labelling PDFs by hand, the corpus starts from a model and emits both a
+UBL document and a PDF from it, so ground truth is perfect by construction.
+
+- **20 base invoices x 3 of 6 layouts = 60 documents**, in Dutch, French and
+  English - each invoice written in one language throughout, because a Dutch
+  invoice under French headings is not a document any supplier sends.
+- **Chosen for what breaks extraction:** four VAT rates on one invoice, reverse
+  charge, intra-community supply, export, discounts, prepayment, 42 lines over a
+  page break, fractional hours, amounts from EUR 0.03 to EUR 584,180.50.
+- **Six structurally different layouts** - one puts the amount column first, one
+  states the total before the lines, one holds columns apart with whitespace alone -
+  and each words the same business terms differently, so a pipeline cannot score
+  by memorising strings.
+- **Belgian conventions on the page** (`02/03/2026`, `1.520,50`), canonical values
+  in the ground truth - normalising the gap is part of the job.
+- **Identifiers are computed, not invented**: enterprise numbers pass mod-97, GLNs
+  pass GS1, IBANs carry correct check digits.
+
+Samples: [Dutch](docs/samples/classic-nl.pdf) ·
+[French](docs/samples/letterhead-fr.pdf) · [English](docs/samples/ledger-en.pdf)
+</details>
 
 ## Licence
 
-MIT, for the code and fixtures in this repository. The downloaded validation
-artefacts keep their own licences; see [artefacts/NOTICE.md](artefacts/NOTICE.md).
+MIT for the code and fixtures here. The downloaded validation artefacts keep their
+own licences; see [artefacts/NOTICE.md](artefacts/NOTICE.md).

@@ -1,0 +1,340 @@
+{
+  "documents": 50,
+  "sample_size": 50,
+  "field_accuracy": 0.9994167395742198,
+  "fields_scored": 3429,
+  "fields_spurious": 0,
+  "valid_first_attempt": 0.96,
+  "valid_after_repair": 0.96,
+  "reconciles_first_attempt": 1.0,
+  "reconciles_after_repair": 1.0,
+  "repairs_attempted": 2,
+  "repairs_kept": 0,
+  "needing_a_person": 2,
+  "errors": 0,
+  "cost_cents_mean": 3.6880200000000003,
+  "cost_cents_median": 3.1199000000000003,
+  "cost_cents_total": 184.401,
+  "latency_ms_median": 8511.5,
+  "latency_ms_max": 35506,
+  "tokens": {
+    "input_tokens": 121105,
+    "output_tokens": 43110,
+    "cache_read_tokens": 215946,
+    "cache_write_tokens": 8442
+  },
+  "accuracy_by_field": {
+    "BT-1": {
+      "accuracy": 1.0,
+      "correct": 50,
+      "total": 50,
+      "spurious": 0
+    },
+    "BT-2": {
+      "accuracy": 1.0,
+      "correct": 50,
+      "total": 50,
+      "spurious": 0
+    },
+    "BT-3": {
+      "accuracy": 1.0,
+      "correct": 50,
+      "total": 50,
+      "spurious": 0
+    },
+    "BT-5": {
+      "accuracy": 1.0,
+      "correct": 50,
+      "total": 50,
+      "spurious": 0
+    },
+    "BT-9": {
+      "accuracy": 1.0,
+      "correct": 47,
+      "total": 47,
+      "spurious": 0
+    },
+    "BT-10": {
+      "accuracy": 1.0,
+      "correct": 50,
+      "total": 50,
+      "spurious": 0
+    },
+    "BT-13": {
+      "accuracy": 1.0,
+      "correct": 10,
+      "total": 10,
+      "spurious": 0
+    },
+    "BT-22": {
+      "accuracy": 1.0,
+      "correct": 8,
+      "total": 8,
+      "spurious": 0
+    },
+    "BT-27": {
+      "accuracy": 1.0,
+      "correct": 50,
+      "total": 50,
+      "spurious": 0
+    },
+    "BT-30": {
+      "accuracy": 1.0,
+      "correct": 50,
+      "total": 50,
+      "spurious": 0
+    },
+    "BT-31": {
+      "accuracy": 1.0,
+      "correct": 50,
+      "total": 50,
+      "spurious": 0
+    },
+    "BT-34": {
+      "accuracy": 1.0,
+      "correct": 50,
+      "total": 50,
+      "spurious": 0
+    },
+    "BT-35": {
+      "accuracy": 1.0,
+      "correct": 50,
+      "total": 50,
+      "spurious": 0
+    },
+    "BT-37": {
+      "accuracy": 1.0,
+      "correct": 50,
+      "total": 50,
+      "spurious": 0
+    },
+    "BT-38": {
+      "accuracy": 1.0,
+      "correct": 50,
+      "total": 50,
+      "spurious": 0
+    },
+    "BT-40": {
+      "accuracy": 1.0,
+      "correct": 50,
+      "total": 50,
+      "spurious": 0
+    },
+    "BT-44": {
+      "accuracy": 1.0,
+      "correct": 50,
+      "total": 50,
+      "spurious": 0
+    },
+    "BT-47": {
+      "accuracy": 1.0,
+      "correct": 41,
+      "total": 41,
+      "spurious": 0
+    },
+    "BT-48": {
+      "accuracy": 1.0,
+      "correct": 48,
+      "total": 48,
+      "spurious": 0
+    },
+    "BT-49": {
+      "accuracy": 0.96,
+      "correct": 48,
+      "total": 50,
+      "spurious": 0
+    },
+    "BT-50": {
+      "accuracy": 1.0,
+      "correct": 50,
+      "total": 50,
+      "spurious": 0
+    },
+    "BT-52": {
+      "accuracy": 1.0,
+      "correct": 50,
+      "total": 50,
+      "spurious": 0
+    },
+    "BT-53": {
+      "accuracy": 1.0,
+      "correct": 50,
+      "total": 50,
+      "spurious": 0
+    },
+    "BT-55": {
+      "accuracy": 1.0,
+      "correct": 50,
+      "total": 50,
+      "spurious": 0
+    },
+    "BT-72": {
+      "accuracy": 1.0,
+      "correct": 12,
+      "total": 12,
+      "spurious": 0
+    },
+    "BT-83": {
+      "accuracy": 1.0,
+      "correct": 47,
+      "total": 47,
+      "spurious": 0
+    },
+    "BT-84": {
+      "accuracy": 1.0,
+      "correct": 47,
+      "total": 47,
+      "spurious": 0
+    },
+    "BT-106": {
+      "accuracy": 1.0,
+      "correct": 50,
+      "total": 50,
+      "spurious": 0
+    },
+    "BT-109": {
+      "accuracy": 1.0,
+      "correct": 50,
+      "total": 50,
+      "spurious": 0
+    },
+    "BT-110": {
+      "accuracy": 1.0,
+      "correct": 50,
+      "total": 50,
+      "spurious": 0
+    },
+    "BT-112": {
+      "accuracy": 1.0,
+      "correct": 50,
+      "total": 50,
+      "spurious": 0
+    },
+    "BT-113": {
+      "accuracy": 1.0,
+      "correct": 3,
+      "total": 3,
+      "spurious": 0
+    },
+    "BT-115": {
+      "accuracy": 1.0,
+      "correct": 50,
+      "total": 50,
+      "spurious": 0
+    },
+    "BT-116": {
+      "accuracy": 1.0,
+      "correct": 72,
+      "total": 72,
+      "spurious": 0
+    },
+    "BT-117": {
+      "accuracy": 1.0,
+      "correct": 72,
+      "total": 72,
+      "spurious": 0
+    },
+    "BT-118": {
+      "accuracy": 1.0,
+      "correct": 72,
+      "total": 72,
+      "spurious": 0
+    },
+    "BT-119": {
+      "accuracy": 1.0,
+      "correct": 72,
+      "total": 72,
+      "spurious": 0
+    },
+    "BT-120": {
+      "accuracy": 1.0,
+      "correct": 16,
+      "total": 16,
+      "spurious": 0
+    },
+    "BT-126": {
+      "accuracy": 1.0,
+      "correct": 204,
+      "total": 204,
+      "spurious": 0
+    },
+    "BT-129": {
+      "accuracy": 1.0,
+      "correct": 204,
+      "total": 204,
+      "spurious": 0
+    },
+    "BT-130": {
+      "accuracy": 1.0,
+      "correct": 204,
+      "total": 204,
+      "spurious": 0
+    },
+    "BT-131": {
+      "accuracy": 1.0,
+      "correct": 204,
+      "total": 204,
+      "spurious": 0
+    },
+    "BT-136": {
+      "accuracy": 1.0,
+      "correct": 12,
+      "total": 12,
+      "spurious": 0
+    },
+    "BT-146": {
+      "accuracy": 1.0,
+      "correct": 204,
+      "total": 204,
+      "spurious": 0
+    },
+    "BT-151": {
+      "accuracy": 1.0,
+      "correct": 204,
+      "total": 204,
+      "spurious": 0
+    },
+    "BT-152": {
+      "accuracy": 1.0,
+      "correct": 204,
+      "total": 204,
+      "spurious": 0
+    },
+    "BT-153": {
+      "accuracy": 1.0,
+      "correct": 204,
+      "total": 204,
+      "spurious": 0
+    },
+    "BT-154": {
+      "accuracy": 1.0,
+      "correct": 18,
+      "total": 18,
+      "spurious": 0
+    }
+  },
+  "accuracy_by_layout": {
+    "classic": 1.0,
+    "compact": 1.0,
+    "ledger": 0.9975062344139651,
+    "letterhead": 0.9975609756097561,
+    "minimal": 1.0,
+    "modern": 1.0
+  },
+  "accuracy_by_language": {
+    "en": 0.9954337899543378,
+    "fr": 1.0,
+    "nl": 1.0
+  },
+  "stopped": null,
+  "budget": {
+    "requests": 52,
+    "input_tokens": 121105,
+    "output_tokens": 43110,
+    "cache_read_tokens": 215946,
+    "cache_write_tokens": 8442,
+    "usd": 1.84401,
+    "usd_cents": 184.401,
+    "limit_usd": 3.0
+  }
+}

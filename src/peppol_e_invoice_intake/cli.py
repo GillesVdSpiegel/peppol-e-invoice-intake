@@ -461,5 +461,92 @@ def eval_command(
         console.print(f"[bold yellow]Stopped early:[/] {summary['stopped']}")
     console.print(f"[dim]Full results in {out}[/]")
 
+
+real_app = typer.Typer(
+    add_completion=False,
+    help="Evaluate on a handful of real invoices placed in corpus/real/ (never committed).",
+)
+app.add_typer(real_app, name="real")
+
+
+@real_app.command("init")
+def real_init() -> None:
+    """Create a blank label file beside every PDF in corpus/real/ that lacks one."""
+    from .evaluation.real import KEY_FIELDS, REAL_ROOT, init_labels
+
+    REAL_ROOT.mkdir(parents=True, exist_ok=True)
+    created = init_labels()
+    pdfs = sorted(REAL_ROOT.glob("*.pdf"))
+    if not pdfs:
+        console.print(f"[yellow]No PDFs in {REAL_ROOT} yet.[/] Drop 5-8 real invoices there.")
+        return
+    console.print(
+        f"{len(created)} new label file(s) for {len(pdfs)} PDF(s), "
+        f"{len(KEY_FIELDS)} fields each."
+    )
+    console.print(
+        "Open each *.labels.json, type the values from the paper, and set "
+        '"verified": true. Leave a field empty when the invoice does not print it.'
+    )
+
+
+@real_app.command("eval")
+def real_eval(
+    out: Path = typer.Option(Path("runs/real-lite"), "--out", help="Run directory."),
+    budget_usd: float = typer.Option(1.0, "--budget", help="Hard spend ceiling in USD."),
+) -> None:
+    """Run the pipeline on every verified real invoice and score the key fields."""
+    from .evaluation import AuthenticationFailed, EvalConfig
+    from .evaluation.real import LabelError, evaluate_real
+
+    _prepare_paid_run()
+    config = EvalConfig(
+        arm="vision", model=DEFAULT_MODEL, extract_effort=EXTRACT_EFFORT,
+        repair_effort=REPAIR_EFFORT, allow_repair=True, sample_size=0, selection="real",
+    )
+
+    def progress(row: dict) -> None:
+        state = "[green]valid[/]" if row["valid"] else "[red]invalid[/]"
+        score = row["score"]
+        console.print(
+            f"  {row['pdf']:<36} {state}  key fields {score['fields_correct']}/"
+            f"{score['fields_total']}  {row['usd_cents']:.2f}c  {row['latency_ms'] / 1000:.1f}s"
+        )
+        for miss in score["misses"]:
+            console.print(
+                f"      [yellow]{miss['field']} {miss['name']}[/]: expected "
+                f"{miss['expected']!r}, got {miss['actual']!r}"
+            )
+
+    try:
+        summary = evaluate_real(out, config, budget=Budget(limit_usd=Decimal(str(budget_usd))),
+                                on_result=progress)
+    except LabelError as exc:
+        console.print(f"[bold red]{exc}[/]")
+        raise typer.Exit(2) from None
+    except AuthenticationFailed as exc:
+        console.print(f"[bold red]The API rejected the credentials:[/] {exc}")
+        raise typer.Exit(2) from None
+
+    for note in summary["skipped"]:
+        console.print(f"[dim]skipped: {note}[/]")
+    table = Table(header_style="bold", title=f"{summary['documents']} real invoices")
+    table.add_column("Metric")
+    table.add_column("Value", justify="right")
+    table.add_row("Key-field accuracy",
+                  f"{_pct(summary['field_accuracy'])} ({summary['fields_correct']}/"
+                  f"{summary['fields_scored']})")
+    table.add_row("Fields invented", str(summary["fields_spurious"]))
+    table.add_row("Valid on first attempt", _pct(summary["valid_first_attempt"]))
+    table.add_row("Valid after one repair", _pct(summary["valid_after_repair"]))
+    table.add_row("Needing a person", str(summary["needing_a_person"]))
+    median = summary["cost_cents_median"]
+    table.add_row("Cost per invoice, median", "-" if median is None else f"{median:.2f} c")
+    latency = summary["latency_ms_median"]
+    table.add_row("Latency, median", "-" if latency is None else f"{latency / 1000:.1f} s")
+    console.print(table)
+    if summary.get("stopped"):
+        console.print(f"[bold yellow]Stopped early:[/] {summary['stopped']}")
+
 if __name__ == "__main__":
     app()

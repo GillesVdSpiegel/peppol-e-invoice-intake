@@ -38,7 +38,8 @@ class EvalConfig:
     allow_repair: bool
     sample_size: int
     #: "coverage" picks `sample_size` documents for layout, language and hard-case
-    #: coverage; "all" takes every document not excluded.
+    #: coverage; "all" takes every document not excluded; "real" is the real-invoice
+    #: run, which evaluates every verified label file.
     selection: str = "coverage"
     #: Documents deliberately left out - typically the ones earlier work was tuned
     #: on, so what remains is a held-out set.
