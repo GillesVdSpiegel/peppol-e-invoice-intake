@@ -254,3 +254,45 @@ def test_a_deliver_to_country_is_derived_only_for_intra_community_supplies():
     cross_border = map_to_invoice(perfect_extraction(original), language=original.language)
     assert cross_border.invoice.delivery_country == "NL"
     assert any(p.field == "BT-80" and not p.needs_human for p in cross_border.problems)
+
+
+def test_a_belgian_enterprise_number_is_derived_from_the_vat_number():
+    """Found on the first real call: a layout that prints only the buyer's VAT
+    number left BT-47 empty. BE + enterprise number is the VAT number by law, so
+    the identifier is known exactly, and the derivation is recorded as such."""
+    original = CATALOGUE["standard-single-rate"]
+    extraction = deepcopy(perfect_extraction(original))
+    extraction.customer.legal_id = None
+
+    result = map_to_invoice(extraction, language=original.language)
+    assert result.invoice.customer.legal_id == original.customer.legal_id
+    assert result.invoice.customer.legal_scheme == "0208"
+    derived = [p for p in result.problems if p.field == "buyer BT-30/BT-47"]
+    assert derived and derived[0].kind is ProblemKind.DERIVED
+    assert not derived[0].needs_human
+
+
+def test_no_enterprise_number_is_derived_from_a_foreign_vat_number():
+    original = CATALOGUE["intra-community-supply"]
+    result = map_to_invoice(perfect_extraction(original), language=original.language)
+    assert result.invoice.customer.legal_id is None
+    assert not [p for p in result.problems if p.field == "buyer BT-30/BT-47"]
+
+
+def test_a_vat_number_that_fails_mod97_yields_no_derived_enterprise_number():
+    extraction = deepcopy(perfect_extraction(CATALOGUE["standard-single-rate"]))
+    extraction.customer.legal_id = None
+    extraction.customer.vat_id = "BE0539801500"  # wrong check digits
+
+    result = map_to_invoice(extraction)
+    assert result.invoice.customer.legal_id is None
+
+
+def test_the_unit_code_description_forbids_inferring_a_unit():
+    """Found on the first real call: with no unit printed, the model read MON off
+    an item called 'Opslag per maand'. The instruction now rules that out."""
+    from peppol_e_invoice_intake.pipeline.schema import ExtractedLine
+
+    description = ExtractedLine.model_fields["unit_code"].description
+    assert "PRINTED" in description
+    assert "do not infer" in description

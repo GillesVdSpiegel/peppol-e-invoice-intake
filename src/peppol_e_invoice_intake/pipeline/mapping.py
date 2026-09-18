@@ -180,6 +180,26 @@ def _party(party: ExtractedParty, role: str, collector: _Collector) -> Party:
             )
             legal_scheme = "0208"
 
+    # A Belgian VAT number is "BE" followed by the enterprise number, so when only
+    # the VAT number is printed the registration identifier is known exactly. This
+    # is a derivation from a printed value under a legal identity, not a guess -
+    # and it is recorded as one.
+    vat_digits = (party.vat_id or "").replace(" ", "").removeprefix("BE")
+    if (
+        legal_id is None
+        and country == "BE"
+        and (party.vat_id or "").replace(" ", "").startswith("BE")
+        and is_valid_enterprise_number(vat_digits)
+    ):
+        legal_id, legal_scheme = vat_digits, "0208"
+        collector.add(
+            ProblemKind.DERIVED,
+            f"{role} BT-30/BT-47",
+            "enterprise number derived from the Belgian VAT number, which is 'BE' "
+            "followed by it",
+            needs_human=False,
+        )
+
     endpoint_id, endpoint_scheme = _endpoint_for(party, role, collector)
 
     return Party(

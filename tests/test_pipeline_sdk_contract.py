@@ -255,3 +255,31 @@ def test_json_that_does_not_match_the_schema_is_an_error_not_a_crash(pdf):
     with pytest.raises(ModelRequestError, match="did not match"):
         extract(pdf, budget=budget, client=recorder.client())
     assert budget.requests == 1
+
+
+def test_the_wire_schema_has_no_nullable_unions():
+    """The first real call was rejected: 'the compiled grammar is too large'. Every
+    `string | null` field was a union in the grammar. Absence now travels as an
+    empty string, so the schema sent must contain no unions and no nulls."""
+    from peppol_e_invoice_intake.pipeline.request import json_schema_for
+    from peppol_e_invoice_intake.pipeline.schema import ExtractedInvoice
+
+    text = json.dumps(json_schema_for(ExtractedInvoice))
+    assert "anyOf" not in text
+    assert '"null"' not in text
+    assert '"title"' not in text
+
+
+def test_empty_strings_from_the_model_parse_as_absent(pdf, expected):
+    """What the real API sends for a field that is not printed."""
+    wire = json.loads(expected.model_dump_json())
+
+    def blank(node):
+        if isinstance(node, dict):
+            return {key: blank(value) for key, value in node.items()}
+        if isinstance(node, list):
+            return [blank(item) for item in node]
+        return "" if node is None else node
+
+    recorder = Recorder(sse_stream(json.dumps(blank(wire))))
+    assert run_extract(pdf, recorder).invoice == expected

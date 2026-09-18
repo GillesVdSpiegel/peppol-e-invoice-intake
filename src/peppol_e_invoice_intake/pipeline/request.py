@@ -44,12 +44,44 @@ class ModelResponse:
     latency_ms: int
 
 
+def _wire(node: Any, *, inside_properties: bool = False) -> Any:
+    """Collapse `X | null` unions to `X` and drop titles.
+
+    Structured outputs compile the schema into a grammar, and each nullable field
+    is a union in that grammar. With 38 of them the API refused the request as
+    "too large" on the first real call. Absence travels as an empty string instead,
+    which the schema models turn back into None on parsing.
+
+    Titles only restate the property names, so they are dropped too: they cost
+    input tokens on every request and tell the model nothing.
+    """
+    if isinstance(node, list):
+        return [_wire(item) for item in node]
+    if not isinstance(node, dict):
+        return node
+    if inside_properties:
+        # Keys here are field names, not schema keywords; keep every one.
+        return {name: _wire(spec) for name, spec in node.items()}
+
+    options = node.get("anyOf")
+    if isinstance(options, list):
+        concrete = [option for option in options if option != {"type": "null"}]
+        if len(concrete) == 1 and len(concrete) < len(options):
+            node = {**{k: v for k, v in node.items() if k != "anyOf"}, **concrete[0]}
+
+    return {
+        key: _wire(value, inside_properties=key == "properties")
+        for key, value in node.items()
+        if key != "title"
+    }
+
+
 @lru_cache(maxsize=8)
 def json_schema_for(output_format: type[BaseModel]) -> dict:
-    """The model's schema in the dialect structured outputs accepts."""
+    """The schema actually sent: structured-outputs dialect, no nullable unions."""
     from anthropic import transform_schema
 
-    return transform_schema(TypeAdapter(output_format).json_schema())
+    return _wire(transform_schema(TypeAdapter(output_format).json_schema()))
 
 
 def _response_text(message) -> str:

@@ -66,7 +66,7 @@ from the wording, or an identifier transcribed with a character wrong.
 has almost certainly been misread by one digit; look again rather than adjusting \
 it to pass.
 - If a field the rules require is genuinely not printed on the document, leave it \
-null and record an uncertainty saying so. Do not invent a value to satisfy a \
+empty and record an uncertainty saying so. Do not invent a value to satisfy a \
 rule. An invoice that fails validation for an honest reason is worth more than \
 one that passes because a field was fabricated.
 

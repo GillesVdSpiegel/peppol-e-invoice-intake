@@ -54,17 +54,22 @@ explicit zero rate with no exemption wording means Z.
 Rules you must follow:
 
 1. Report what is printed. Do not calculate anything. If a total is not printed \
-on the document, return null for it rather than working it out from the lines.
+on the document, return an empty string for it rather than working it out from \
+the lines.
 2. Transcribe every invoice line, in the order printed, including lines that \
 continue onto a second page. Do not merge, reorder or summarise them.
 3. A line's unit price is the price before VAT for one unit. Where a line shows \
 a discount, report the discount separately as a positive amount and leave the \
 unit price as the undiscounted one.
-4. Prefer null and an entry in `uncertainties` over a guess. A field you record \
-as uncertain can be checked by a person; a field you guessed wrong cannot.
+4. Prefer an empty string and an entry in `uncertainties` over a guess. A field \
+you record as uncertain can be checked by a person; a field you guessed wrong \
+cannot.
 5. Identifiers must be copied character for character - VAT numbers, enterprise \
 numbers, IBANs and structured payment references. Do not reformat, space or \
 tidy them.
+6. Every field must be present. When something is not printed on the \
+document, give it an empty string - never a placeholder, and never a value you \
+inferred.
 
 The column layout varies between suppliers. Some invoices put the amount column \
 first and the description last. Read the column headings rather than assuming a \
