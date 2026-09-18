@@ -242,3 +242,15 @@ def test_prepaid_amount_is_taken_from_the_stated_totals():
     result = map_to_invoice(perfect_extraction(original), language=original.language)
     assert result.invoice.prepaid_amount == Decimal("4000.00")
     assert result.invoice.payable_amount == original.payable_amount
+
+
+def test_a_deliver_to_country_is_derived_only_for_intra_community_supplies():
+    """BR-IC-12 needs one there; everywhere else it would be a field the document
+    never stated."""
+    domestic = map_to_invoice(perfect_extraction(CATALOGUE["standard-single-rate"]))
+    assert domestic.invoice.delivery_country is None
+
+    original = CATALOGUE["intra-community-supply"]
+    cross_border = map_to_invoice(perfect_extraction(original), language=original.language)
+    assert cross_border.invoice.delivery_country == "NL"
+    assert any(p.field == "BT-80" and not p.needs_human for p in cross_border.problems)

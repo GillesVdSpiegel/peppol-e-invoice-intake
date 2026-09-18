@@ -157,7 +157,9 @@ def test_the_repair_prompt_points_away_from_the_totals(pdf: Path, tmp_path: Path
     client = FakeAnthropic(broken, perfect_extraction(CATALOGUE[KEY]))
     run(pdf, budget=budget(), client=client, workdir=tmp_path / "out")
 
-    assert "do not adjust a total" in client.calls[1].system_text
+    system = client.calls[1].system_text
+    assert "Do not change a printed total" in system
+    assert "the printed totals are the reference" in system
 
 
 def test_the_previous_reading_is_included_in_the_repair_request(pdf: Path, tmp_path: Path):
@@ -308,3 +310,90 @@ def test_the_repair_message_survives_having_no_mapping_problems():
     message = build_repair_message(perfect_extraction(CATALOGUE[KEY]), validation, [])
     assert "BR-02" in message
     assert "corrected extraction" in message
+
+
+# --- reconciliation as a repair trigger ---------------------------------------
+
+
+def misread_quantity():
+    """A reading that validates perfectly and is wrong: the quantity on line 1 was
+    misread, so the computed totals disagree with the ones printed on the page."""
+    extraction = deepcopy(perfect_extraction(CATALOGUE[KEY]))
+    extraction.lines[0].quantity = "1"  # printed as 10
+    return extraction
+
+
+def test_a_valid_but_unreconciled_reading_still_gets_a_repair(pdf: Path, tmp_path: Path):
+    """The failure validation cannot see. Totals are recomputed, so a misread line
+    produces a self-consistent, valid document for the wrong amount."""
+    client = FakeAnthropic(misread_quantity(), perfect_extraction(CATALOGUE[KEY]))
+    result = run(pdf, budget=budget(), client=client, workdir=tmp_path / "out")
+
+    assert result.valid_first_attempt, "the misreading is invisible to validation"
+    assert result.first_reconciles is False
+    assert result.repair_attempted
+    assert result.repair_kept
+    assert result.reconciles
+
+
+def test_the_repair_request_explains_the_reconciliation_failure(pdf: Path, tmp_path: Path):
+    client = FakeAnthropic(misread_quantity(), perfect_extraction(CATALOGUE[KEY]))
+    run(pdf, budget=budget(), client=client, workdir=tmp_path / "out")
+
+    message = client.calls[1].user_text
+    assert "do not add up to the totals printed" in message
+    assert "BT-106" in message
+    assert "failed validation" not in message, "it passed validation; do not say otherwise"
+
+
+def test_an_unreconciled_repair_that_is_no_better_is_discarded(pdf: Path, tmp_path: Path):
+    first = misread_quantity()
+    client = FakeAnthropic(first, misread_quantity())
+    result = run(pdf, budget=budget(), client=client, workdir=tmp_path / "out")
+
+    assert result.repair_attempted
+    assert not result.repair_kept
+    assert not result.reconciles
+
+
+def test_a_clean_reading_that_reconciles_is_never_repaired(pdf: Path, tmp_path: Path):
+    client = FakeAnthropic(perfect_extraction(CATALOGUE[KEY]))
+    result = run(pdf, budget=budget(), client=client, workdir=tmp_path / "out")
+    assert result.first_reconciles is True
+    assert client.call_count == 1
+
+
+# --- effort: cheap first pass, careful repair ---------------------------------
+
+
+def test_the_first_reading_runs_at_low_effort(pdf: Path, tmp_path: Path):
+    client = FakeAnthropic(perfect_extraction(CATALOGUE[KEY]))
+    run(pdf, budget=budget(), client=client, workdir=tmp_path / "out")
+    assert client.calls[0].kwargs["output_config"]["effort"] == "low"
+
+
+def test_the_repair_runs_at_a_higher_effort_than_the_first_reading(pdf: Path, tmp_path: Path):
+    """Run cheap, and pay for a careful second look only where a check failed."""
+    client = FakeAnthropic(misread_quantity(), perfect_extraction(CATALOGUE[KEY]))
+    run(pdf, budget=budget(), client=client, workdir=tmp_path / "out")
+    assert client.calls[0].kwargs["output_config"]["effort"] == "low"
+    assert client.calls[1].kwargs["output_config"]["effort"] == "high"
+
+
+def test_effort_can_be_left_to_the_model_default(pdf: Path, tmp_path: Path):
+    client = FakeAnthropic(perfect_extraction(CATALOGUE[KEY]))
+    run(pdf, budget=budget(), client=client, extract_effort=None, workdir=tmp_path / "out")
+    assert "effort" not in client.calls[0].kwargs["output_config"]
+
+
+def test_token_meters_are_recorded_per_document(pdf: Path, tmp_path: Path):
+    client = FakeAnthropic(
+        misread_quantity(),
+        perfect_extraction(CATALOGUE[KEY]),
+        usage=FakeUsage(input_tokens=3_000, output_tokens=1_000, cache_read_input_tokens=700),
+    )
+    summary = run(pdf, budget=budget(), client=client, workdir=tmp_path / "out").summary()
+    assert summary["requests"] == 2
+    assert summary["input_tokens"] == 6_000
+    assert summary["output_tokens"] == 2_000
+    assert summary["cache_read_tokens"] == 1_400

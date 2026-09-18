@@ -26,6 +26,7 @@ from .schema import ExtractedInvoice
 if TYPE_CHECKING:
     import anthropic
 
+
 class Arm(StrEnum):
     VISION = "vision"
     TEXT = "text"
@@ -87,6 +88,16 @@ genuinely ambiguous, record an uncertainty rather than guessing.
 {text}
 --- end extracted text ---\
 """
+
+
+#: Effort for the first reading. Reading an invoice is transcription, not
+#: reasoning, so it runs at the cheapest setting; the documents it gets wrong are
+#: caught by validation or reconciliation and re-read at REPAIR_EFFORT. This is
+#: the "run cheap, re-run failures at the default" pattern, and it only works
+#: because the pipeline has a reliable failure signal.
+EXTRACT_EFFORT = "low"
+
+EFFORT_LEVELS = ("low", "medium", "high", "xhigh", "max")
 
 
 class ExtractionError(ModelRequestError):
@@ -156,6 +167,7 @@ def extract(
     budget: Budget,
     client: anthropic.Anthropic | None = None,
     model: str = DEFAULT_MODEL,
+    effort: str | None = EXTRACT_EFFORT,
 ) -> ExtractionResult:
     """Read one invoice PDF. Costs money; the budget is checked first."""
     arm = Arm(arm)
@@ -173,6 +185,7 @@ def extract(
         output_format=ExtractedInvoice,
         budget=budget,
         about=f"extract {document.name}",
+        effort=effort,
     )
 
     return ExtractionResult(

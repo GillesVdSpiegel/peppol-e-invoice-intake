@@ -8,6 +8,10 @@ artefacts/*
 # at all - they are other people's commercial data.
 /corpus/
 
+# Evaluation runs hold model output and cost records; published numbers go in
+# the README, not the raw run directories.
+/runs/
+
 .venv/
 __pycache__/
 *.py[cod]

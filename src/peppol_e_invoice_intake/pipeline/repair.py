@@ -1,6 +1,6 @@
 """One repair attempt, and only one.
 
-Three decisions worth stating, because each could reasonably have gone the other
+Four decisions worth stating, because each could reasonably have gone the other
 way:
 
 **The cap is one attempt, not a loop.** An unbounded retry loop converges on
@@ -9,14 +9,20 @@ cheapest way to satisfy a rule is often to drop the offending field. One attempt
 keeps cost predictable and keeps "passed after repair" a meaningful number rather
 than a measure of how long we were willing to wait.
 
-**Repair edits the extraction, never the XML.** Mapping is deterministic, so the
-XML is only ever as good as what was read off the page. A validation failure is
-evidence that the *reading* was wrong, and patching the XML would paper over the
-misreading while leaving the underlying field wrong.
+**It is triggered by reconciliation as well as validation.** Totals are computed,
+so validation almost never catches a misread line - the emitted document is
+internally consistent whatever was misread. A disagreement between the lines and
+the totals printed on the page is the stronger, more specific signal, so it earns
+a repair too. See docs/decisions/0002-extract-then-compute.md.
 
-**The model is shown described problems, never raw validator output.** An SVRL
-report is a machine artefact full of XPath; what helps is the business term, what
-the rule requires, and where to look on the document.
+**It runs at a higher effort than the first reading.** The first pass is cheap
+and most documents should pass it; only the ones with a concrete failure signal
+pay for a careful second look.
+
+**Repair edits the extraction, never the XML**, and the model is shown described
+problems rather than raw validator output. An SVRL report is a machine artefact
+full of XPath; what helps is the business term, what the rule requires, and where
+to look on the document.
 """
 
 from __future__ import annotations
@@ -27,24 +33,32 @@ from pathlib import Path
 from ..validation import ValidationFinding, ValidationResult
 from .budget import DEFAULT_MODEL, Budget, Spend
 from .extraction import Arm, build_content
-from .mapping import Problem
+from .mapping import Problem, ProblemKind
 from .request import structured_request
 from .schema import ExtractedInvoice
+
+#: The repair is the careful read, so it runs at the model's default effort.
+REPAIR_EFFORT = "high"
 
 REPAIR_SYSTEM_PROMPT = """\
 You are correcting an earlier reading of a supplier invoice.
 
-A first pass extracted the fields below. The resulting Peppol BIS Billing 3.0 \
-document was then validated against the official EN 16931 and Peppol rule sets, \
-and it failed. You are being given the problems and one chance to re-read the \
-document and return a corrected extraction.
+A first pass extracted the fields below. That reading was then checked two ways: \
+the Peppol BIS Billing 3.0 document built from it was validated against the \
+official EN 16931 and Peppol rule sets, and its line items were added up and \
+compared with the totals printed on the document. It failed at least one of those \
+checks. You are being given the problems and one chance to re-read the document \
+and return a corrected extraction.
 
 How to approach this:
 
-- The totals are not the problem. They are recomputed from the line items by \
-code that is known to satisfy the arithmetic rules. If a total-related rule \
-failed, the cause is a misread quantity, unit price, discount or VAT rate on one \
-of the lines - find that, do not adjust a total.
+- If the lines do not add up to the printed totals, one of the lines was misread: \
+a quantity, a unit price, a discount, or a VAT rate. Find that line. Do not \
+change a printed total to make it agree with the lines - the printed totals are \
+the reference, and moving them would hide the mistake rather than fix it.
+- If a total-related validation rule failed, the cause is likewise a line, not a \
+total. Totals in the output document are recomputed from the lines by code that \
+is known to satisfy the arithmetic rules.
 - Re-read the document for the specific fields named. Most failures come from a \
 value read from the wrong column, a VAT category inferred from a rate instead of \
 from the wording, or an identifier transcribed with a character wrong.
@@ -75,18 +89,36 @@ def build_repair_message(
     validation: ValidationResult,
     problems: list[Problem],
 ) -> str:
-    sections = [
-        "The document failed validation with these problems:",
-        "",
-        *(describe(finding) for finding in validation.blocking),
-    ]
+    """Describe what the first reading got wrong, grouped by how it was caught."""
+    sections: list[str] = []
 
-    if mapping_problems := [p for p in problems if p.needs_human]:
+    if validation.blocking:
         sections += [
+            "The document built from the first reading failed validation:",
             "",
+            *(describe(finding) for finding in validation.blocking),
+        ]
+
+    reconciliation = [p for p in problems if p.kind is ProblemKind.RECONCILIATION]
+    if reconciliation:
+        if sections:
+            sections.append("")
+        sections += [
+            "The line items do not add up to the totals printed on the document:",
+            "",
+            *(f"- {problem}" for problem in reconciliation),
+        ]
+
+    other = [
+        p for p in problems if p.needs_human and p.kind is not ProblemKind.RECONCILIATION
+    ]
+    if other:
+        if sections:
+            sections.append("")
+        sections += [
             "The mapping step also flagged these, which may share a cause:",
             "",
-            *(f"- {problem}" for problem in mapping_problems),
+            *(f"- {problem}" for problem in other),
         ]
 
     sections += [
@@ -117,6 +149,7 @@ def repair(
     budget: Budget,
     client=None,
     model: str = DEFAULT_MODEL,
+    effort: str | None = REPAIR_EFFORT,
 ) -> RepairResult:
     """Ask for one corrected extraction. The document is re-sent so it can be re-read."""
     arm = Arm(arm)
@@ -139,6 +172,7 @@ def repair(
         output_format=ExtractedInvoice,
         budget=budget,
         about=f"repair {document.name}",
+        effort=effort,
     )
     return RepairResult(
         invoice=response.parsed,

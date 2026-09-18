@@ -354,6 +354,29 @@ def map_to_invoice(
             "requires one of them and it must come from a person",
         )
 
+    # BT-80 is rarely printed as such. BR-IC-12 requires it on intra-community
+    # supplies, where the goods go to the buyer's country, so it is derived there -
+    # and only there. Deriving it for every invoice would add a field the document
+    # never stated to invoices that do not need one.
+    delivery_country = None
+    if any(line.vat_category is VatCategory.INTRA_COMMUNITY for line in lines):
+        delivery_country = (extracted.customer.country_code or "").upper() or None
+        if delivery_country:
+            collector.add(
+                ProblemKind.DERIVED,
+                "BT-80",
+                "deliver-to country taken from the buyer's address, as required for an "
+                "intra-community supply",
+                needs_human=False,
+            )
+        else:
+            collector.add(
+                ProblemKind.MISSING,
+                "BT-80",
+                "intra-community supply with no deliver-to country and no buyer country "
+                "to derive it from",
+            )
+
     invoice = Invoice(
         number=extracted.invoice_number or "",
         issue_date=issue_date,
@@ -366,7 +389,7 @@ def map_to_invoice(
         lines=lines,
         note=extracted.note,
         delivery_date=collector.date(extracted.delivery_date, "BT-72"),
-        delivery_country=(extracted.customer.country_code or "").upper() or None,
+        delivery_country=delivery_country,
         iban=extracted.iban,
         payment_reference=extracted.payment_reference,
         payment_terms=extracted.payment_terms,

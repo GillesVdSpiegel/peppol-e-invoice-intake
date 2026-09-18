@@ -23,10 +23,24 @@ class FakeUsage:
 
 
 @dataclass
+class FakeTextBlock:
+    text: str
+    type: str = "text"
+
+
+@dataclass
 class FakeResponse:
-    parsed_output: ExtractedInvoice | None
+    """What `get_final_message()` returns: the JSON arrives as a text block."""
+
+    content: list
     usage: FakeUsage = field(default_factory=FakeUsage)
     stop_reason: str = "end_turn"
+
+    @classmethod
+    def carrying(cls, output, usage: FakeUsage, stop_reason: str) -> FakeResponse:
+        text = output.model_dump_json() if output is not None else ""
+        return cls(content=[FakeTextBlock(text)] if text else [], usage=usage,
+                   stop_reason=stop_reason)
 
 
 @dataclass
@@ -97,11 +111,7 @@ class FakeMessages:
         # The last configured output repeats, so a test that only cares about the
         # first response does not have to enumerate the repair response too.
         output = self._outputs.pop(0) if len(self._outputs) > 1 else self._outputs[0]
-        return FakeResponse(
-            parsed_output=output,
-            usage=self._usage or FakeUsage(),
-            stop_reason=self._stop_reason,
-        )
+        return FakeResponse.carrying(output, self._usage or FakeUsage(), self._stop_reason)
 
     def parse(self, **kwargs) -> FakeResponse:
         return self._next(kwargs)

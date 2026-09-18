@@ -15,6 +15,8 @@ from .corpus.catalogue import CATALOGUE
 from .corpus.render import LAYOUTS
 from .pipeline import Budget, BudgetExceeded, run
 from .pipeline.budget import DEFAULT_MODEL
+from .pipeline.extraction import EFFORT_LEVELS, EXTRACT_EFFORT
+from .pipeline.repair import REPAIR_EFFORT
 from .validation import ArtefactsMissing, Layer, ValidationResult, validate
 from .validation.artefacts import ORACLE_RULE_SETS, RULE_SETS
 from .validation.backends import BACKENDS, DEFAULT_BACKEND
@@ -332,6 +334,88 @@ def convert(
         f"of a ${summary['limit_usd']:.2f} ceiling."
     )
     raise typer.Exit(1 if failures else 0)
+
+
+def _pct(value) -> str:
+    return "-" if value is None else f"{value:.1%}"
+
+
+@app.command("eval")
+def eval_command(
+    sample: int = typer.Option(10, "--sample", min=1, help="Documents to evaluate."),
+    out: Path = typer.Option(Path("runs/sample-10"), "--out", help="Run directory."),
+    root: Path = typer.Option(DEFAULT_ROOT, "--root", help="Corpus location."),
+    arm: str = typer.Option("vision", "--arm", help="vision or text."),
+    model: str = typer.Option(DEFAULT_MODEL, "--model"),
+    effort: str = typer.Option(
+        EXTRACT_EFFORT, "--effort", help=f"First-pass effort: {', '.join(EFFORT_LEVELS)}."
+    ),
+    repair_effort: str = typer.Option(REPAIR_EFFORT, "--repair-effort"),
+    no_repair: bool = typer.Option(False, "--no-repair"),
+    budget_usd: float = typer.Option(2.0, "--budget", help="Hard spend ceiling in USD."),
+) -> None:
+    """Run the pipeline over a sample of the corpus and score it against ground truth.
+
+    Costs money. Results are written as they land, so re-running the same command
+    resumes without paying again for documents already done.
+    """
+    from .evaluation import AuthenticationFailed, ConfigMismatch, EvalConfig, evaluate
+
+    for level in (effort, repair_effort):
+        if level not in EFFORT_LEVELS:
+            console.print(f"[bold red]Unknown effort {level!r}[/]")
+            raise typer.Exit(2)
+
+    config = EvalConfig(
+        arm=arm, model=model, extract_effort=effort, repair_effort=repair_effort,
+        allow_repair=not no_repair, sample_size=sample,
+    )
+    budget = Budget(limit_usd=Decimal(str(budget_usd)))
+
+    def progress(row: dict) -> None:
+        state = "[green]valid[/]" if row["valid"] else "[red]invalid[/]"
+        recon = "" if row["reconciles"] else " [yellow]does not reconcile[/]"
+        accuracy = row["score"]["accuracy"]
+        console.print(
+            f"  {row['key']:<32} {row['layout']:<11} {state}{recon}  "
+            f"fields {_pct(accuracy)}  {row['usd_cents']:.2f}c  {row['latency_ms'] / 1000:.1f}s"
+        )
+
+    try:
+        summary = evaluate(root, out, config, budget=budget, on_result=progress)
+    except FileNotFoundError as exc:
+        console.print(f"[bold red]{exc}[/]")
+        raise typer.Exit(2) from None
+    except ConfigMismatch as exc:
+        console.print(f"[bold red]{exc}[/]")
+        raise typer.Exit(2) from None
+    except AuthenticationFailed as exc:
+        console.print(
+            f"[bold red]The API rejected the credentials:[/] {exc}\n"
+            "Set ANTHROPIC_API_KEY, or run `ant auth login`, and re-run."
+        )
+        raise typer.Exit(2) from None
+
+    table = Table(header_style="bold", title=f"{summary['documents']} documents")
+    table.add_column("Metric")
+    table.add_column("Value", justify="right")
+    table.add_row("Per-field accuracy", _pct(summary["field_accuracy"]))
+    table.add_row("Valid on first attempt", _pct(summary["valid_first_attempt"]))
+    table.add_row("Valid after one repair", _pct(summary["valid_after_repair"]))
+    table.add_row("Reconciles on first attempt", _pct(summary["reconciles_first_attempt"]))
+    table.add_row("Reconciles after repair", _pct(summary["reconciles_after_repair"]))
+    table.add_row("Repairs attempted / kept",
+                  f"{summary['repairs_attempted']} / {summary['repairs_kept']}")
+    table.add_row("Needing a person", str(summary["needing_a_person"]))
+    median = summary["cost_cents_median"]
+    table.add_row("Cost per invoice, median", "-" if median is None else f"{median:.2f} c")
+    table.add_row("Cost, total", f"{summary['cost_cents_total']:.2f} c")
+    latency = summary["latency_ms_median"]
+    table.add_row("Latency, median", "-" if latency is None else f"{latency / 1000:.1f} s")
+    console.print(table)
+    if summary.get("stopped"):
+        console.print(f"[bold yellow]Stopped early:[/] {summary['stopped']}")
+    console.print(f"[dim]Full results in {out}[/]")
 
 if __name__ == "__main__":
     app()
