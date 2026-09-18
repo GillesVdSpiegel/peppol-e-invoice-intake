@@ -6,11 +6,13 @@ readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
 dependencies = [
+    "anthropic>=1.6",
     "jinja2>=3.1",
     "lxml>=5.2",
     "saxonche>=12.4",
     "playwright>=1.44",
     "pypdf>=4.2",
+    "python-dotenv>=1.0",
     "pydantic>=2.7",
     "typer>=0.12",
     "rich>=13.7",

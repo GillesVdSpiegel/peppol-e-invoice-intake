@@ -159,8 +159,8 @@
         <div class="line-discount">{{ L.discount }}: -{{ m(line.discount) }}</div>
         {% endif %}
       </td>
-      <td class="num">{{ q(line.quantity) }}</td>
-      <td class="num">{{ m(line.unit_price) }}</td>
+      <td class="num">{{ q(line.quantity) }}{% if u(line.unit_code) %} {{ u(line.unit_code) }}{% endif %}</td>
+      <td class="num">{{ p(line.unit_price) }}</td>
       <td class="num">{{ r(line.vat_rate) }}</td>
       <td class="num">{{ m(line.net_amount) }}</td>
     </tr>
