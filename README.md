@@ -275,8 +275,19 @@ peppol-e-invoice-intake corpus status     # what is built on disk
 peppol-e-invoice-intake convert x.pdf     # PDF to validated UBL (calls the API)
 ```
 
-`convert` is the only command that costs money. It needs `ANTHROPIC_API_KEY` set,
-or a profile from `ant auth login`.
+`convert` and `eval` are the only commands that cost money. They read
+`ANTHROPIC_API_KEY` from a `.env` file in the project folder:
+
+```bash
+cp .env.example .env      # then put your key after the equals sign
+```
+
+`.env` is gitignored, and a test asks git itself to confirm it stays that way.
+The key is loaded into the CLI's own process only when a paid command runs, so
+your shell never holds it - which matters because an `ANTHROPIC_API_KEY` in the
+environment silently switches tools such as Claude Code to per-token billing.
+Only that one variable is read from the file. A key already set in the
+environment takes precedence, and an `ant auth login` profile works too.
 
 `check` exits non-zero if any document is invalid, so it composes in a shell
 pipeline or a CI step.

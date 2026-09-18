@@ -20,3 +20,9 @@ __pycache__/
 dist/
 build/
 *.egg-info/
+
+# Local credentials. The CLI reads ANTHROPIC_API_KEY from .env; it must never be
+# committed. .env.example is the empty template that is.
+.env
+.env.*
+!.env.example

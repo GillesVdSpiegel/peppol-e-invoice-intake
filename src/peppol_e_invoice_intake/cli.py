@@ -13,6 +13,7 @@ from rich.table import Table
 from .corpus.build import DEFAULT_ROOT, CorpusBuildError, build, load_manifest
 from .corpus.catalogue import CATALOGUE
 from .corpus.render import LAYOUTS
+from .credentials import load_api_key, unusual_api_endpoint
 from .pipeline import Budget, BudgetExceeded, run
 from .pipeline.budget import DEFAULT_MODEL
 from .pipeline.extraction import EFFORT_LEVELS, EXTRACT_EFFORT
@@ -241,6 +242,26 @@ def corpus_status(
     )
 
 
+def _prepare_paid_run() -> None:
+    """Load the API key and say where requests will go, before anything is spent."""
+    source = load_api_key()
+    if source is None:
+        console.print(
+            "[yellow]No ANTHROPIC_API_KEY in the environment or in .env.[/] "
+            "Copy .env.example to .env and add your key, or the SDK will fall back "
+            "to other credentials such as an `ant auth login` profile."
+        )
+    else:
+        console.print(f"[dim]Using the API key from {source}.[/]")
+    endpoint = unusual_api_endpoint()
+    if endpoint:
+        console.print(
+            f"[bold yellow]Requests will go to {endpoint}[/], not api.anthropic.com, "
+            "because ANTHROPIC_BASE_URL is set in this terminal. Run "
+            "`Remove-Item Env:ANTHROPIC_BASE_URL` first unless that is intended."
+        )
+
+
 def _problem_table(result) -> Table:
     table = Table(header_style="bold", title="Needs a person")
     table.add_column("Kind", no_wrap=True)
@@ -270,6 +291,7 @@ def convert(
     This calls the Claude API and costs money. The ceiling is checked before every
     request, so the run stops rather than overspending.
     """
+    _prepare_paid_run()
     budget = Budget(limit_usd=Decimal(str(budget_usd)))
     out.mkdir(parents=True, exist_ok=True)
     failures = 0
@@ -366,6 +388,7 @@ def eval_command(
             console.print(f"[bold red]Unknown effort {level!r}[/]")
             raise typer.Exit(2)
 
+    _prepare_paid_run()
     config = EvalConfig(
         arm=arm, model=model, extract_effort=effort, repair_effort=repair_effort,
         allow_repair=not no_repair, sample_size=sample,
