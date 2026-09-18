@@ -179,7 +179,7 @@ def corpus(tmp_path: Path) -> Path:
     documents = build(root, render_pdfs=False)
     for document in documents:
         document.pdf.parent.mkdir(parents=True, exist_ok=True)
-        document.pdf.write_bytes(f"%PDF-1.4\n{document.key}\n".encode())
+        document.pdf.write_bytes(f"%PDF-1.4\n{document.key}\n{document.layout}\n".encode())
     return root
 
 
@@ -280,3 +280,60 @@ def test_the_run_records_the_token_meters_the_cost_analysis_needs(corpus: Path, 
         "input_tokens", "output_tokens", "cache_read_tokens", "cache_write_tokens"
     }
     assert summary["cost_cents_median"] > 0
+
+
+# --- held-out runs ------------------------------------------------------------
+
+
+def test_a_holdout_takes_every_document_except_the_excluded_ones():
+    from peppol_e_invoice_intake.evaluation import choose_documents
+
+    entries = manifest_like_entries()
+    tuned_on = select_sample(entries, 10)
+    config = EvalConfig(**{**CONFIG.__dict__, "selection": "all",
+                           "excluded": tuple(e["pdf"] for e in tuned_on)})
+    held_out = choose_documents(entries, config)
+
+    assert len(held_out) == len(entries) - 10
+    assert not {e["pdf"] for e in held_out} & {e["pdf"] for e in tuned_on}
+
+
+def test_documents_of_run_reads_what_a_run_evaluated(corpus: Path, tmp_path: Path):
+    from peppol_e_invoice_intake.evaluation import documents_of_run
+
+    out = tmp_path / "run"
+    evaluate(corpus, out, CONFIG, budget=Budget(), client=ReadsTheDocument())
+    assert len(documents_of_run(out)) == CONFIG.sample_size
+
+
+def test_a_holdout_run_resumes_without_paying_twice(corpus: Path, tmp_path: Path):
+    """The config holds a tuple of exclusions; it must still match itself on
+    resume after a trip through JSON, or every resume would be refused."""
+    first = tmp_path / "first"
+    evaluate(corpus, first, CONFIG, budget=Budget(), client=ReadsTheDocument())
+    from peppol_e_invoice_intake.evaluation import documents_of_run
+
+    config = EvalConfig(**{**CONFIG.__dict__, "selection": "all",
+                           "excluded": documents_of_run(first)})
+    out = tmp_path / "holdout"
+    evaluate(corpus, out, config, budget=Budget(limit_usd=Decimal("0.10")),
+             client=ReadsTheDocument())
+    finished = {
+        json.loads(line)["key"] + "__" + json.loads(line)["layout"]
+        for line in (out / "results.jsonl").read_text(encoding="utf-8").splitlines()
+    }
+    assert finished, "the ceiling should stop the first pass part-way"
+
+    second = ReadsTheDocument()
+    summary = evaluate(corpus, out, config, budget=Budget(), client=second)
+    assert summary["documents"] == 60 - CONFIG.sample_size
+
+    def requested(call) -> str:
+        """The stand-in PDFs carry their invoice key and layout."""
+        block = next(b for b in call.kwargs["messages"][0]["content"] if b["type"] == "document")
+        _, key, layout = base64.b64decode(block["source"]["data"]).decode().split("\n")[:3]
+        return f"{key}__{layout}"
+
+    assert not finished & {requested(call) for call in second.calls}, (
+        "a document already finished was requested again"
+    )

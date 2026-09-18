@@ -375,6 +375,11 @@ def eval_command(
     repair_effort: str = typer.Option(REPAIR_EFFORT, "--repair-effort"),
     no_repair: bool = typer.Option(False, "--no-repair"),
     budget_usd: float = typer.Option(2.0, "--budget", help="Hard spend ceiling in USD."),
+    holdout: Path | None = typer.Option(
+        None,
+        "--holdout",
+        help="Evaluate every document EXCEPT those of this earlier run directory.",
+    ),
 ) -> None:
     """Run the pipeline over a sample of the corpus and score it against ground truth.
 
@@ -389,9 +394,25 @@ def eval_command(
             raise typer.Exit(2)
 
     _prepare_paid_run()
+    excluded: tuple[str, ...] = ()
+    if holdout is not None:
+        from .evaluation import documents_of_run
+
+        try:
+            excluded = documents_of_run(holdout)
+        except FileNotFoundError as exc:
+            console.print(f"[bold red]{exc}[/]")
+            raise typer.Exit(2) from None
+        console.print(
+            f"[dim]Held out: every document except the {len(excluded)} evaluated in "
+            f"{holdout}.[/]"
+        )
+
     config = EvalConfig(
         arm=arm, model=model, extract_effort=effort, repair_effort=repair_effort,
         allow_repair=not no_repair, sample_size=sample,
+        selection="all" if holdout is not None else "coverage",
+        excluded=excluded,
     )
     budget = Budget(limit_usd=Decimal(str(budget_usd)))
 

@@ -37,6 +37,12 @@ class EvalConfig:
     repair_effort: str | None
     allow_repair: bool
     sample_size: int
+    #: "coverage" picks `sample_size` documents for layout, language and hard-case
+    #: coverage; "all" takes every document not excluded.
+    selection: str = "coverage"
+    #: Documents deliberately left out - typically the ones earlier work was tuned
+    #: on, so what remains is a held-out set.
+    excluded: tuple[str, ...] = ()
 
 
 class ConfigMismatch(RuntimeError):
@@ -55,7 +61,10 @@ def _read_rows(path: Path) -> list[dict]:
 
 def _bind_config(out: Path, config: EvalConfig, sample: list[dict]) -> None:
     path = out / "config.json"
-    wanted = {**asdict(config), "documents": [entry["pdf"] for entry in sample]}
+    # Round-trip through JSON so tuples and lists compare equal on resume.
+    wanted = json.loads(
+        json.dumps({**asdict(config), "documents": [entry["pdf"] for entry in sample]})
+    )
     if path.exists():
         existing = json.loads(path.read_text(encoding="utf-8"))
         if existing != wanted:
@@ -65,6 +74,25 @@ def _bind_config(out: Path, config: EvalConfig, sample: list[dict]) -> None:
             )
         return
     path.write_text(json.dumps(wanted, indent=2) + "\n", encoding="utf-8")
+
+
+def choose_documents(entries: list[dict], config: EvalConfig) -> list[dict]:
+    """Which manifest entries a run evaluates, honouring exclusions."""
+    excluded = set(config.excluded)
+    remaining = [entry for entry in entries if entry["pdf"] not in excluded]
+    if config.selection == "all":
+        return remaining
+    if config.selection == "coverage":
+        return select_sample(remaining, config.sample_size)
+    raise ValueError(f"unknown selection {config.selection!r}")
+
+
+def documents_of_run(run_dir: Path) -> tuple[str, ...]:
+    """The documents an earlier run evaluated, read from its bound configuration."""
+    path = run_dir / "config.json"
+    if not path.exists():
+        raise FileNotFoundError(f"{run_dir} has no config.json, so it is not a run directory")
+    return tuple(json.loads(path.read_text(encoding="utf-8"))["documents"])
 
 
 def evaluate(
@@ -78,7 +106,9 @@ def evaluate(
 ) -> dict:
     """Run and score the sample. Returns the summary, which is also written to disk."""
     manifest = load_manifest(root)
-    sample = select_sample(manifest["entries"], config.sample_size)
+    sample = choose_documents(manifest["entries"], config)
+    if not sample:
+        raise ValueError("no documents left to evaluate after exclusions")
 
     out.mkdir(parents=True, exist_ok=True)
     _bind_config(out, config, sample)
