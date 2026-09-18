@@ -24,9 +24,11 @@ from .i18n import (
     VAT_CATEGORY_NOTE,
     format_amount,
     format_date,
+    format_price,
     format_quantity,
     format_rate,
     labels,
+    unit_label,
 )
 from .model import Invoice, Language, VatCategory
 
@@ -123,6 +125,8 @@ def render_html(invoice: Invoice, layout: Layout | str = "classic") -> str:
         d=lambda value: format_date(value, language),
         m=lambda value: format_amount(Decimal(value), language),
         q=lambda value: format_quantity(Decimal(value), language),
+        p=lambda value: format_price(Decimal(value), language),
+        u=lambda code: unit_label(code, language),
         r=lambda value: format_rate(Decimal(value), language),
         vat_note=lambda category: VAT_CATEGORY_NOTE[language].get(
             VatCategory(category), VatCategory(category).value

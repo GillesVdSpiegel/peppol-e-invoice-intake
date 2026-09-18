@@ -128,8 +128,8 @@
           {% if line.description %}<div class="desc">{{ line.description }}</div>{% endif %}
           {% if line.discount %}<div class="desc">{{ L.discount }} &minus;{{ m(line.discount) }}</div>{% endif %}
         </td>
-        <td class="n">{{ q(line.quantity) }}</td>
-        <td class="n">{{ m(line.unit_price) }}</td>
+        <td class="n">{{ q(line.quantity) }}{% if u(line.unit_code) %} {{ u(line.unit_code) }}{% endif %}</td>
+        <td class="n">{{ p(line.unit_price) }}</td>
         <td class="n">{{ r(line.vat_rate) }}</td>
         <td class="n">{{ m(line.net_amount) }}</td>
       </tr>

@@ -86,10 +86,11 @@ class ExtractedLine(_Extracted):
     unit_code: str | None = Field(
         description=(
             "UN/ECE Recommendation 20 code for the unit PRINTED with the quantity, "
-            "in a unit column or right beside the number: C62 for pieces, HUR for "
-            "hours, KGM for kilograms, MTR for metres, LTR for litres, DAY for days, "
-            "MON for months. Leave empty when no unit is printed - do not infer one "
-            "from the item name, even one like 'per month'."
+            "in a unit column or right beside the number. Units print as words or "
+            "abbreviations in Dutch, French or English: uur / h / hrs is HUR, kg is "
+            "KGM, m is MTR, l / L is LTR, dagen / jours / days is DAY, maand / mois / "
+            "months is MON, and pieces are C62. Leave empty when no unit is printed "
+            "- do not infer one from the item name, even one like 'per month'."
         )
     )
     unit_price: str | None = Field(
