@@ -136,7 +136,7 @@ flowchart LR
 4. **If either check complains, the page is re-read once** - never in a loop - and
    the second reading is kept only if it is genuinely better.
 
-### Three decisions I would defend in an interview
+### Three decisions that shape everything else
 
 - **The model reads; the code computes.** European invoicing rules demand exact
   arithmetic, and asking a language model to do rounding-sensitive sums is asking
@@ -278,16 +278,6 @@ run writes its own directory holding every converted invoice, the raw reading
 behind it, and a per-field comparison against the expected answer, but those
 directories stay local, because they are reproducible and because real invoices
 would otherwise end up in git by accident.
-</details>
-
-<details>
-<summary><b>Why this project exists</b></summary>
-
-It is a portfolio project: a self-contained piece of work built to show how I
-approach a real problem - a legal deadline, a messy input, a domain with an
-unforgiving rulebook - and, more to the point, how I measure whether the result is
-any good. The measurement and its caveats took longer to build than the pipeline,
-which is roughly the ratio I think this kind of work deserves.
 </details>
 
 ## Licence

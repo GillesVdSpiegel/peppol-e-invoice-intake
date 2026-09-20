@@ -144,7 +144,7 @@ flowchart LR
 4. **Klaagt een van beide, dan wordt het blad één keer herlezen** - nooit in een
    lus - en de tweede lezing wordt alleen behouden als ze echt beter is.
 
-### Drie keuzes die ik in een gesprek zou verdedigen
+### Drie keuzes die de rest bepalen
 
 - **Het model leest; de code rekent.** De Europese factuurregels eisen exacte
   rekenkunde, en een taalmodel afrondingsgevoelige sommen laten maken is vragen om
@@ -291,16 +291,6 @@ schrijft zijn eigen map met elke omgezette factuur, de ruwe lezing erachter en e
 veld-per-veldvergelijking met het verwachte antwoord, maar die mappen blijven
 lokaal, omdat ze reproduceerbaar zijn en omdat er anders ooit een echte factuur per
 ongeluk in git belandt.
-</details>
-
-<details>
-<summary><b>Waarom dit project bestaat</b></summary>
-
-Het is een portfolioproject: een afgerond stuk werk om te tonen hoe ik een echt
-probleem aanpak - een wettelijke deadline, rommelige invoer, een domein met een
-onverbiddelijk regelboek - en vooral hoe ik meet of het resultaat iets waard is. Die
-meting en haar kanttekeningen hebben meer tijd gekost dan de pijplijn zelf, wat
-ongeveer de verhouding is die dit soort werk volgens mij verdient.
 </details>
 
 ## Licentie
