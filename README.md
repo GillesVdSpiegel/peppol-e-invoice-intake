@@ -42,6 +42,13 @@ keyed into something else. **It is the invoice** - the finished document in the
 format Peppol carries. An access point picks up that exact file and delivers it,
 and the buyer's accounting software books it without anyone retyping a line.
 
+No, it is not meant to be readable, and that is the whole idea. A PDF is legible to
+a person and opaque to software, which is why someone has to retype it; this is the
+other way round. Whoever needs to *look* at the invoice sees it on screen in their
+own accounting software, drawn from these fields - the readable version is produced
+at the far end, from the data, instead of the data being reconstructed from
+something readable.
+
 Neither picture is a mock-up. One command converted the left into the right, and a
 second one independently checked the result - 8.9 seconds, 2.89 cents:
 
