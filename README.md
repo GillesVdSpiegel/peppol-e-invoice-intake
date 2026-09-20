@@ -32,10 +32,15 @@ On the left, what a supplier emails: a French invoice, with the line
 *"Autoliquidation"* - reverse charge, where the buyer owes the VAT instead of the
 seller. On the right, what the law now requires instead, produced from it.
 
-| Before: the PDF that arrives | After: the e-invoice it becomes |
+| Before: the PDF that arrives | After: the e-invoice itself |
 |---|---|
 | <img src="docs/images/invoice.png" alt="A French reverse-charge supplier invoice" width="420"> | <img src="docs/images/output.png" alt="The first 42 lines of the UBL invoice produced from it" width="420"> |
 | [letterhead-fr.pdf](docs/samples/letterhead-fr.pdf) | [letterhead-fr-output.xml](docs/samples/letterhead-fr-output.xml) - both files are in this repo |
+
+The file on the right is not a summary of the invoice, and not data waiting to be
+keyed into something else. **It is the invoice** - the finished document in the
+format Peppol carries. An access point picks up that exact file and delivers it,
+and the buyer's accounting software books it without anyone retyping a line.
 
 Neither picture is a mock-up. One command converted the left into the right, and a
 second one independently checked the result - 8.9 seconds, 2.89 cents:

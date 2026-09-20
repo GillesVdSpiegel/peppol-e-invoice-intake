@@ -36,10 +36,16 @@ Links wat een leverancier doormailt: een Franstalige factuur, met de vermelding
 verschuldigd is in plaats van de verkoper. Rechts wat de wet nu in de plaats vraagt,
 eruit gemaakt.
 
-| Ervoor: de pdf die binnenkomt | Erna: de e-factuur die eruit komt |
+| Ervoor: de pdf die binnenkomt | Erna: de e-factuur zelf |
 |---|---|
 | <img src="docs/images/invoice.png" alt="Een Franstalige factuur met verlegging van heffing" width="420"> | <img src="docs/images/output.png" alt="De eerste 42 lijnen van de UBL-factuur die eruit kwam" width="420"> |
 | [letterhead-fr.pdf](docs/samples/letterhead-fr.pdf) | [letterhead-fr-output.xml](docs/samples/letterhead-fr-output.xml) - beide bestanden zitten in deze repo |
+
+Het bestand rechts is geen samenvatting van de factuur, en ook geen data die nog
+ergens ingetikt moet worden. **Het ís de factuur** - het afgewerkte document in het
+formaat dat Peppol vervoert. Een access point pikt precies dat bestand op en levert
+het af, en de boekhoudsoftware van de klant boekt het in zonder dat er één lijn
+overgetypt wordt.
 
 Geen van beide beelden is een mock-up. Eén commando maakte van links rechts, een
 tweede controleerde het resultaat onafhankelijk - 8,9 seconden, 2,89 cent:
