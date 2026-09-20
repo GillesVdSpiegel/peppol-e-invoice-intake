@@ -59,8 +59,25 @@ def load_api_key(files: list[Path] | None = None) -> str | None:
         value = (dotenv_values(path).get(KEY) or "").strip()
         if value:
             os.environ[KEY] = value
-            return str(path)
+            return _display(path)
     return None
+
+
+def _display(path: Path) -> str:
+    """The path relative to where the command was run, when it is below it.
+
+    The notice is printed on every paid run, and an absolute path puts the
+    user's directory layout into every screenshot and log of one.
+    """
+    resolved = path.resolve()
+    try:
+        return str(resolved.relative_to(Path.cwd().resolve()))
+    except ValueError:
+        pass
+    try:
+        return f"{resolved.relative_to(REPO_ROOT.resolve())} in the project folder"
+    except ValueError:
+        return str(path)
 
 
 def unusual_api_endpoint() -> str | None:
