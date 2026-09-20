@@ -47,6 +47,13 @@ formaat dat Peppol vervoert. Een access point pikt precies dat bestand op en lev
 het af, en de boekhoudsoftware van de klant boekt het in zonder dat er één lijn
 overgetypt wordt.
 
+Nee, het is niet leesbaar bedoeld, en daar draait het net om. Een pdf is leesbaar
+voor een mens en ondoorzichtig voor software - vandaar dat iemand ze moet overtypen.
+Hier is het omgekeerd. Wie de factuur wíl bekijken, ziet ze gewoon in zijn eigen
+boekhoudpakket op het scherm, opgebouwd uit deze velden: de leesbare versie wordt
+aan de andere kant uit de data gemaakt, in plaats van dat de data uit iets leesbaars
+gereconstrueerd moet worden.
+
 Geen van beide beelden is een mock-up. Eén commando maakte van links rechts, een
 tweede controleerde het resultaat onafhankelijk - 8,9 seconden, 2,89 cent:
 
