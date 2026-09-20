@@ -31,14 +31,18 @@ het nog.
 
 ## Zo ziet het eruit
 
-Er komt een Franstalige factuur binnen. Let op de vermelding
+Links wat een leverancier doormailt: een Franstalige factuur, met de vermelding
 *"Autoliquidation"* - btw verlegd naar de medecontractant, waarbij de koper de btw
-verschuldigd is in plaats van de verkoper:
+verschuldigd is in plaats van de verkoper. Rechts wat de wet nu in de plaats vraagt,
+eruit gemaakt.
 
-<img src="docs/images/invoice.png" alt="Een Franstalige factuur met verlegging van heffing" width="520">
+| Ervoor: de pdf die binnenkomt | Erna: de e-factuur die eruit komt |
+|---|---|
+| <img src="docs/images/invoice.png" alt="Een Franstalige factuur met verlegging van heffing" width="420"> | <img src="docs/images/output.png" alt="De eerste 42 lijnen van de UBL-factuur die eruit kwam" width="420"> |
+| [letterhead-fr.pdf](docs/samples/letterhead-fr.pdf) | [letterhead-fr-output.xml](docs/samples/letterhead-fr-output.xml) - beide bestanden zitten in deze repo |
 
-Eén commando zet ze om, een tweede controleert het resultaat onafhankelijk. Dit is
-een echte uitvoering, geen mock-up: 8,9 seconden en 2,89 cent.
+Geen van beide beelden is een mock-up. Eén commando maakte van links rechts, een
+tweede controleerde het resultaat onafhankelijk - 8,9 seconden, 2,89 cent:
 
 ![Terminal: convert levert een geldige factuur op voor 2,89 cent in 8,9 seconden, check bevestigt dat](docs/images/terminal.png)
 
@@ -58,15 +62,9 @@ afgeleid uit het btw-nummer:
 
 Dat is de hele opdracht: een blad lezen dat voor mensen geschreven is, en er een
 bestand van maken dat voor machines geschreven is, zonder het verschil zelf in te
-vullen.
-
-Beide helften van die uitvoering zitten in deze repository, zodat je de bewering
-kan natrekken in plaats van ze te geloven: de factuur hierboven is
-[docs/samples/letterhead-fr.pdf](docs/samples/letterhead-fr.pdf) en het bestand dat
-eruit kwam is
-[docs/samples/letterhead-fr-output.xml](docs/samples/letterhead-fr-output.xml).
-`check` op dat tweede bestand loslaten is precies wat de onderste helft van de
-terminalafbeelding toont.
+vullen. Beide helften zitten in deze repository, zodat je de bewering kan natrekken
+in plaats van ze te geloven - `check` op die XML loslaten is precies wat de onderste
+helft van de terminalafbeelding toont.
 
 ## Wat de cijfers zeggen
 

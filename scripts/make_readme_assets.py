@@ -1,11 +1,12 @@
 """Build the images at the top of the README.
 
-    docs/images/invoice.png     the input: a corpus invoice as rendered
-    docs/images/terminal.svg    the output: a real `convert` run, then `check`
-    docs/images/terminal.png    the same, rasterised, because GitHub strips the
-                                <style> block out of an SVG in a README and the
-                                terminal colours live in it - the image renders,
-                                but blank. The README references the PNG.
+    docs/images/invoice.png     the before: a corpus invoice as rendered
+    docs/images/output.svg      the after: the head of the UBL it converted to
+    docs/images/terminal.svg    the run itself: a real `convert`, then `check`
+    docs/images/*.png           the two SVGs rasterised, because GitHub strips the
+                                <style> block out of an SVG in a README and every
+                                colour lives in it - the image renders, but blank.
+                                The READMEs reference the PNGs.
 
 The terminal image is made from output captured from an actual run, not
 retyped. Capture it first, from the project root (the convert step is a paid API
@@ -38,6 +39,10 @@ IMAGES = ROOT / "docs" / "images"
 
 DEMO_INVOICE = "reverse-charge-construction"
 DEMO_LAYOUT = "letterhead"
+
+#: The output side of the same run, committed so a reader can open it.
+OUTPUT = ROOT / "docs" / "samples" / "letterhead-fr-output.xml"
+OUTPUT_LINES = 42
 
 #: The commands exactly as they were run to produce the captured output.
 STEPS = (
@@ -80,12 +85,36 @@ def terminal_svg() -> Path:
     return target
 
 
-def terminal_png(svg: Path) -> Path:
-    """Rasterise the terminal SVG at 2x, for a README that will not style it."""
+def output_svg() -> Path:
+    """The head of the UBL the demo run produced, as the README's "after" image.
+
+    Read from the committed copy, so the picture and the file a reader can open
+    cannot drift apart. It is the top of the document, not a curated selection:
+    the caption says how much of it this is.
+    """
+    from rich.syntax import Syntax
+
+    lines = OUTPUT.read_text(encoding="utf-8").splitlines()
+    head = "\n".join(lines[:OUTPUT_LINES])
+
+    console = Console(record=True, width=84, force_terminal=True, color_system="truecolor")
+    console.print(
+        Syntax(head, "xml", theme="monokai", background_color="default", word_wrap=True)
+    )
+
+    target = IMAGES / "output.svg"
+    console.save_svg(
+        str(target), title=f"{OUTPUT.name}  -  first {OUTPUT_LINES} of {len(lines)} lines"
+    )
+    return target
+
+
+def terminal_png(svg: Path, name: str = "terminal.png") -> Path:
+    """Rasterise a rich SVG at 2x, for a README that will not style it."""
     from playwright.sync_api import sync_playwright
 
     width, height = (float(value) for value in _view_box(svg)[2:])
-    target = IMAGES / "terminal.png"
+    target = IMAGES / name
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch()
         page = browser.new_page(
@@ -115,8 +144,15 @@ def _view_box(svg: Path) -> list[str]:
 
 def main() -> int:
     IMAGES.mkdir(parents=True, exist_ok=True)
-    svg = terminal_svg()
-    for path in (invoice_png(), svg, terminal_png(svg)):
+    terminal, output = terminal_svg(), output_svg()
+    written = (
+        invoice_png(),
+        terminal,
+        terminal_png(terminal),
+        output,
+        terminal_png(output, "output.png"),
+    )
+    for path in written:
         print(f"wrote {path.relative_to(ROOT)} ({path.stat().st_size // 1024} KB)")
     return 0
 

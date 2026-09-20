@@ -28,13 +28,17 @@ right is worse than one that visibly failed, because nothing downstream catches 
 
 ## See it work
 
-A French invoice arrives. Note the line *"Autoliquidation"* - reverse charge,
-where the buyer owes the VAT instead of the seller:
+On the left, what a supplier emails: a French invoice, with the line
+*"Autoliquidation"* - reverse charge, where the buyer owes the VAT instead of the
+seller. On the right, what the law now requires instead, produced from it.
 
-<img src="docs/images/invoice.png" alt="A French reverse-charge supplier invoice" width="520">
+| Before: the PDF that arrives | After: the e-invoice it becomes |
+|---|---|
+| <img src="docs/images/invoice.png" alt="A French reverse-charge supplier invoice" width="420"> | <img src="docs/images/output.png" alt="The first 42 lines of the UBL invoice produced from it" width="420"> |
+| [letterhead-fr.pdf](docs/samples/letterhead-fr.pdf) | [letterhead-fr-output.xml](docs/samples/letterhead-fr-output.xml) - both files are in this repo |
 
-One command converts it, and a second one independently checks the result. This
-is a real run, not a mock-up - it took 8.9 seconds and cost 2.89 cents:
+Neither picture is a mock-up. One command converted the left into the right, and a
+second one independently checked the result - 8.9 seconds, 2.89 cents:
 
 ![Terminal: convert produces a valid invoice for 2.89 cents in 8.9 seconds, and check confirms it](docs/images/terminal.png)
 
@@ -53,14 +57,9 @@ its VAT number:
 ```
 
 That is the whole job: read a page written for humans, and produce a file written
-for machines, without inventing the difference.
-
-Both halves of that run are in this repository, so you can check the claim rather
-than take it: the invoice above is [docs/samples/letterhead-fr.pdf](docs/samples/letterhead-fr.pdf),
-and the file it produced is
-[docs/samples/letterhead-fr-output.xml](docs/samples/letterhead-fr-output.xml).
-Running `check` on that second file is how the bottom half of the terminal image
-was produced.
+for machines, without inventing the difference. Both halves are committed, so the
+claim can be checked rather than taken - running `check` on that XML is exactly
+what the bottom half of the terminal image shows.
 
 ## What the numbers say
 
