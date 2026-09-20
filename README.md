@@ -2,24 +2,46 @@
 
 [![CI](https://github.com/GillesVdSpiegel/peppol-e-invoice-intake/actions/workflows/ci.yml/badge.svg)](https://github.com/GillesVdSpiegel/peppol-e-invoice-intake/actions/workflows/ci.yml)
 
-**Turns a supplier invoice PDF into a Peppol BIS Billing 3.0 e-invoice, validated
-against the official EN 16931 and Peppol rule sets - and tells a person exactly what
-it could not map, instead of guessing.**
+**English** · [Nederlands](README.nl.md)
 
-Since 1 January 2026, Belgian B2B invoices must be structured e-invoices; a PDF no
-longer satisfies the law. This is the intake step for the PDFs that still arrive.
+**Turns a supplier's invoice PDF into a legally structured e-invoice - and checks
+its own work against the official rulebook instead of guessing.**
 
-A French reverse-charge invoice goes in:
+## The problem this solves
+
+Since 1 January 2026, Belgian businesses must send each other *structured*
+e-invoices: a data file that the receiver's accounting software reads directly.
+A PDF no longer satisfies the law - and a PDF is still what most suppliers email.
+
+So someone has to turn those PDFs into data. Usually that someone is a person,
+retyping about thirty fields per invoice and hoping they don't fat-finger a VAT
+number.
+
+This project does that step automatically. A PDF goes in. Out comes an invoice
+file that has already been checked against the official European and Belgian
+rules, plus a short report of anything the software was unsure about - so a person
+reviews *that*, instead of the whole invoice.
+
+One principle runs through the whole design: **the software is allowed to say "I
+don't know", and it is not allowed to guess.** An invoice that is wrong but looks
+right is worse than one that visibly failed, because nothing downstream catches it.
+
+## See it work
+
+A French invoice arrives. Note the line *"Autoliquidation"* - reverse charge,
+where the buyer owes the VAT instead of the seller:
 
 <img src="docs/images/invoice.png" alt="A French reverse-charge supplier invoice" width="520">
 
-and validated UBL comes out, for about three cents:
+One command converts it, and a second one independently checks the result. This
+is a real run, not a mock-up - it took 8.9 seconds and cost 2.89 cents:
 
 ![Terminal: convert produces a valid invoice for 2.89 cents in 8.9 seconds, and check confirms it](docs/images/terminal.svg)
 
-The part worth looking at in the output - the model read *"Autoliquidation"*, and
-the pipeline turned it into the right VAT category with its legal reason, plus a
-Peppol address that no paper invoice ever prints:
+Inside the file it produced, two things are worth pointing at. The French word on
+the page became the correct VAT code with its legal justification, and the
+company's Peppol address - which no paper invoice ever prints - was derived from
+its VAT number:
 
 ```xml
 <cac:TaxCategory>
@@ -30,29 +52,46 @@ Peppol address that no paper invoice ever prints:
 <cbc:EndpointID schemeID="0208">0223344577</cbc:EndpointID>   <!-- derived from the VAT number -->
 ```
 
-## Results
+That is the whole job: read a page written for humans, and produce a file written
+for machines, without inventing the difference.
 
-Measured on 50 held-out documents: synthetic invoices that nothing was tuned on, in
-six visual layouts and three languages. Raw figures:
-[docs/results/holdout-50-summary.json](docs/results/holdout-50-summary.json).
+## What the numbers say
 
-| Metric | Synthetic (held-out, n=50) | Real invoices |
-|---|---|---|
-| Per-field extraction accuracy | **99.9%** (3,427 of 3,429 fields) | pending |
-| Fields invented | **0** | pending |
-| Valid on first attempt | 96% (48 / 50) | pending |
-| Valid after one repair attempt | 96% (48 / 50) | pending |
-| Cost per invoice | **3.1 ¢** median, 3.7 ¢ mean | pending |
-| Latency per invoice | **8.5 s** median | pending |
+Measured on **50 invoices the pipeline had never seen**, in six visual layouts and
+three languages. Every figure below comes from
+[docs/results/holdout-50-summary.json](docs/results/holdout-50-summary.json),
+written by the run itself.
 
-**Read this with the caveats, because they matter more than the headline.**
-The two failures are one invoice, rendered twice, that is invalid *by design*: a
-Swiss buyer whose Peppol address cannot be derived from anything printed, so the
-pipeline flags it for a person rather than inventing one - and it did, both times.
-The synthetic corpus is clean and digitally generated, and at 99.9% it has hit its
-ceiling: it can no longer tell a good pipeline from a better one. Held out by
-document, not by invoice - each base invoice also appears in the tuning sample in
-a different layout. The real-invoice column is the number that counts.
+| | |
+|---|---|
+| Fields read correctly | **99.9%** - 3,427 of 3,429 |
+| Values invented (present in the output, absent from the page) | **0** |
+| Totals matched what the invoice printed | **50 of 50** |
+| Passed the official validation | **48 of 50** |
+| Cost per invoice | **3.1 ¢** typical (3.7 ¢ average) |
+| Time per invoice | **8.5 seconds** typical |
+| Automated tests, run on Windows and Linux | 395 |
+| Total spend on AI calls to build *and* measure the project | about $3 |
+
+**The caveats matter more than the headline, so here they are, not in a footnote.**
+
+- **The two failures are one invoice, and they are deliberate.** It has a Swiss
+  buyer whose electronic address cannot be derived from anything printed on the
+  page. The pipeline flagged it for a human rather than inventing one - which is
+  exactly the behaviour I wanted - and it did so both times it saw it.
+- **These are generated test invoices, not real ones.** They are clean, digital,
+  and never smudged, skewed or scanned. At 99.9% the test set has hit its ceiling:
+  it can no longer tell a good pipeline from a better one.
+- **It has not been measured on real supplier invoices.** The tooling to do that
+  fairly is in the repo (`real init` / `real eval`, with hand-typed labels so the
+  model is never scored against its own answers), but the measurement was not run.
+  Treat the number above as "works on clean inputs", not "works in your post room".
+- **Held out by document, not by invoice.** Each of the 50 is a layout the
+  pipeline had not seen, but some of the underlying invoices also appear elsewhere
+  in a different layout.
+
+I would rather publish a smaller honest number than a larger one that quietly
+assumes its own test data.
 
 ## How it works
 
@@ -70,67 +109,81 @@ flowchart LR
     E -- passes --> H[Valid UBL +<br/>report for a person]
 ```
 
-Three decisions shape everything:
+1. **An AI model reads the page** and returns only what is actually printed on it.
+2. **Ordinary code does the arithmetic** - totals, VAT breakdown, rounding - so the
+   sums are right by construction rather than by luck.
+3. **The result is checked twice:** once against the official rulebook, and once
+   against the totals printed on the original, which is how a misread quantity gets
+   caught.
+4. **If either check complains, the page is re-read once** - never in a loop - and
+   the second reading is kept only if it is genuinely better.
 
-- **The model reads; the code computes.** Claude returns only what is *printed*.
-  Totals, VAT breakdown and rounding are computed deterministically, so the
-  EN 16931 arithmetic rules hold by construction. That creates a trap - recompute
-  everything and a misread quantity becomes a *valid invoice for the wrong amount*,
-  invisible to validation - so the printed totals are extracted too and reconciled
-  against the computed ones. It also means the validation pass rate says little:
-  reconciliation is the check that catches a misreading, so it triggers the repair
-  too.
+### Three decisions I would defend in an interview
+
+- **The model reads; the code computes.** European invoicing rules demand exact
+  arithmetic, and asking a language model to do rounding-sensitive sums is asking
+  it to fail slowly and expensively. But recomputing everything creates a trap: a
+  misread quantity then produces a *valid invoice for the wrong amount*, which
+  validation will happily wave through. So the printed totals are extracted as
+  well and reconciled against the computed ones. That is the check that actually
+  catches misreadings - and it means the validation pass rate, the number most
+  demos would lead with, says the least.
   [Decision record](docs/decisions/0002-extract-then-compute.md).
-- **One repair attempt, never a loop.** An unbounded loop converges on something
-  that validates, which is not the same as something that is right. The repair
-  re-reads the page at a higher effort, is shown described problems rather than
-  raw validator output, is told not to invent values, and is discarded if it is no
-  better than the first reading.
-- **The validator is verified, not trusted.** Every number above rests on the rule
-  engine being correct, so it runs two independent backends and a test asserts
-  they agree on every fixture. [Decision record](docs/decisions/0001-dual-backend.md).
+- **One repair attempt, never a loop.** An unbounded retry loop converges on
+  something that *validates*, which is not the same as something that is *right* -
+  the cheapest way to satisfy a rule is usually to drop the field. So: one retry,
+  shown a description of the problem rather than raw validator output, told
+  explicitly not to invent values, and discarded if it is no better than the first
+  reading.
+- **The validator is verified, not trusted.** Every number on this page rests on
+  the rule engine being correct, so the project runs two independent
+  implementations of the rules and a test asserts they agree on every fixture.
+  [Decision record](docs/decisions/0001-dual-backend.md).
 
-Cost is kept low deliberately: the first reading runs at low effort (reading an
-invoice is transcription, not reasoning), only documents that fail a check pay for
-a careful second look, and the roughly 4,000-token prompt and schema are cached.
+Cost is kept low deliberately: the first reading runs at low reasoning effort
+(reading an invoice is transcription, not thinking), only documents that fail a
+check pay for a careful second look, and the fixed part of the prompt is cached.
 
 ## What broke, and what it taught me
 
 Every one of these was found by testing against the real thing, not by reading code.
 
-- **The API rejected the first real request outright** - "the compiled grammar is
-  too large". Structured outputs compile the JSON schema into a grammar, and 38
-  nullable fields meant 38 unions. Absence now travels as an empty string. Found by
-  a one-invoice smoke test that cost nothing, before any batch run.
-- **A truncated response crashed the run and went unbilled in my accounting.** The
-  SDK parsed half-finished JSON mid-stream and raised before the stop reason
-  arrived, so the spend cap undercounted exactly when something went wrong. Found by
-  driving the real SDK through a mock HTTP transport, which the fake client used by
-  the other tests could never have caught.
-- **The model found a bug in my test data.** On the first evaluation it flagged that
-  an invoice's printed unit prices did not reproduce its line totals. It was right:
-  my templates printed `16,66` where the ground truth said `16.665`. Eight of the
-  nine misses in that run were corpus defects, not reading errors, and the ninth
-  was the designed-in Swiss case. A new audit now
-  renders every invoice in every layout and fails if the ground truth claims
-  anything the page does not show.
-- **A layout silently dropped totals off the page - on Linux only.** A wider
-  monospace font pushed amounts past the page edge; the HTML was right and the PDF
-  rendered without error. Caught because CI runs on Windows and Ubuntu.
-- **Six of my own twenty "known-good" invoices were invalid.** Among them, an
-  exemption reason on zero-rated lines, which BR-Z-10 forbids. Caught because the
-  corpus builder refuses to write any invoice the validator rejects.
+- **The API rejected my very first real request.** "The compiled grammar is too
+  large" - 38 optional fields had become 38 branches in the output grammar. Absence
+  now travels as an empty string instead. Found by a one-invoice smoke test that
+  cost a few cents, before any batch run.
+- **A truncated response crashed a run *and* under-reported what it had cost me.**
+  The SDK parsed half-finished output and raised before the billing information
+  arrived, so my spend cap undercounted at exactly the moment something went wrong.
+  Found by driving the real SDK through a fake network layer - the simple test
+  double used elsewhere could never have caught it.
+- **The model found a bug in my test data.** On the first evaluation it reported
+  that an invoice's printed unit prices did not reproduce its own line totals. It
+  was right: my invoice templates printed `16,66` where the truth was `16.665`.
+  Eight of the nine "mistakes" in that run were defects in my test set, not
+  reading errors. There is now an audit that renders every invoice in every layout
+  and fails the build if the expected answer claims anything the page does not
+  actually show.
+- **A layout silently dropped totals off the page - on Linux only.** A wider font
+  pushed the amounts past the page edge; the HTML was fine and the PDF rendered
+  without any error. Caught only because the tests run on Windows *and* Linux.
+- **Six of my own twenty "known-good" invoices were invalid.** Among them, a
+  legally required-sounding exemption note on zero-rated lines that the rules
+  actually forbid. Caught because the test-data builder refuses to write any
+  invoice the validator rejects.
 
 ## What this is not
 
-- **It does not send anything over the Peppol network.** That needs a paid Access
-  Point and a registered business identity; the output is network-ready UBL.
-- **No hosted UI** - it is a CLI.
-- **Invoices only** - no credit notes, self-billing or non-Belgian extensions.
+- **It does not send anything over the Peppol network.** That needs a paid access
+  point and a registered business identity. The output is a file that is ready to
+  send.
+- **There is no web interface** - it is a command-line tool.
+- **Invoices only** - no credit notes, no self-billing, no non-Belgian extensions.
+- **Not measured on real invoices**, as explained above.
 
 ## Running it
 
-Requires Python 3.11+.
+Requires Python 3.11 or newer.
 
 ```bash
 python -m venv .venv
@@ -144,23 +197,23 @@ pytest                            # 395 tests, no network, no API spend
 ```bash
 peppol-e-invoice-intake convert invoice.pdf        # PDF -> validated UBL (calls the API)
 peppol-e-invoice-intake check invoice.xml          # validate any UBL invoice
-peppol-e-invoice-intake corpus build               # generate the 60-document test corpus
-peppol-e-invoice-intake eval --sample 10           # measure against ground truth (calls the API)
+peppol-e-invoice-intake corpus build               # generate the 60-document test set
+peppol-e-invoice-intake eval --sample 10           # measure against known answers (calls the API)
 ```
 
-`convert` and `eval` read `ANTHROPIC_API_KEY` from a gitignored `.env`
-(`cp .env.example .env`). The key is loaded only into the CLI's own process, so
-your shell - and any tool that changes its billing when that variable is set -
-never sees it. Every paid run has a hard spend ceiling, checked before each request.
+Only `convert` and `eval` cost money. They read `ANTHROPIC_API_KEY` from a
+git-ignored `.env` (`cp .env.example .env`), loaded into that command's own process
+only - so your shell never holds the key, and every paid run has a hard spending
+ceiling that is checked before each request.
 
 <details>
 <summary><b>The validation harness</b></summary>
 
-Three layers run in order, and each finding is tagged with the layer that produced
+Three layers run in order, and every finding is tagged with the layer that produced
 it, because Peppol rejects things core EN 16931 accepts:
 
 1. **UBL 2.1 XSD** - structural; a schema-invalid document short-circuits the rest.
-2. **EN 16931** - the CEN/TC 434 `BR-*` rules.
+2. **EN 16931** - the CEN/TC 434 `BR-*` business rules.
 3. **Peppol BIS Billing 3.0** - the `PEPPOL-*` rules, including Belgian specifics
    such as `PEPPOL-COMMON-R043`, the mod-97 check on enterprise numbers.
 
@@ -176,10 +229,11 @@ Fourteen deliberately broken fixtures each pin the exact rule IDs they must trip
 </details>
 
 <details>
-<summary><b>The synthetic corpus</b></summary>
+<summary><b>The synthetic test set</b></summary>
 
-Rather than labelling PDFs by hand, the corpus starts from a model and emits both a
-UBL document and a PDF from it, so ground truth is perfect by construction.
+Rather than labelling PDFs by hand, the test set starts from a model of an invoice
+and emits both the expected data file and a PDF from it, so the expected answer is
+correct by construction.
 
 - **20 base invoices x 3 of 6 layouts = 60 documents**, in Dutch, French and
   English - each invoice written in one language throughout, because a Dutch
@@ -190,14 +244,24 @@ UBL document and a PDF from it, so ground truth is perfect by construction.
 - **Six structurally different layouts** - one puts the amount column first, one
   states the total before the lines, one holds columns apart with whitespace alone -
   and each words the same business terms differently, so a pipeline cannot score
-  by memorising strings.
+  well by memorising strings.
 - **Belgian conventions on the page** (`02/03/2026`, `1.520,50`), canonical values
-  in the ground truth - normalising the gap is part of the job.
+  in the expected answer - normalising the gap between them is part of the job.
 - **Identifiers are computed, not invented**: enterprise numbers pass mod-97, GLNs
-  pass GS1, IBANs carry correct check digits.
+  pass the GS1 check, IBANs carry correct check digits.
 
 Samples: [Dutch](docs/samples/classic-nl.pdf) ·
 [French](docs/samples/letterhead-fr.pdf) · [English](docs/samples/ledger-en.pdf)
+</details>
+
+<details>
+<summary><b>Why this project exists</b></summary>
+
+It is a portfolio project: a self-contained piece of work built to show how I
+approach a real problem - a legal deadline, a messy input, a domain with an
+unforgiving rulebook - and, more to the point, how I measure whether the result is
+any good. The measurement and its caveats took longer to build than the pipeline,
+which is roughly the ratio I think this kind of work deserves.
 </details>
 
 ## Licence
