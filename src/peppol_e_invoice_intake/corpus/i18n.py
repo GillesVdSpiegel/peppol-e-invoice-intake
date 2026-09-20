@@ -289,3 +289,44 @@ def format_quantity(value: Decimal, language: Language) -> str:
 
 def format_rate(value: Decimal, language: Language) -> str:
     return f"{format_quantity(value, language)}%"
+
+
+def format_price(value: Decimal, language: Language) -> str:
+    """A unit price at the precision it actually has - two decimals minimum.
+
+    Prices were once printed through `format_amount`, which rounds to two places.
+    A price of 16.665 then appeared on the page as 16,66 while the ground truth
+    said 16.665 and the line amount said 50,00: the document no longer carried the
+    value it was being scored against. The first real evaluation run caught it,
+    because the model noticed the printed prices did not reproduce the line totals.
+    """
+    exponent = -value.as_tuple().exponent
+    places = max(2, min(exponent, 4))
+    formatted = f"{value:,.{places}f}"
+    if language is Language.EN:
+        return formatted
+    return formatted.replace(",", "\x00").replace(".", ",").replace("\x00", ".")
+
+
+#: How each unit is written beside a quantity, per language. Pieces (C62) print
+#: nothing, as on real invoices. Every other unit is printed, because the ground
+#: truth records it and a document that hides it cannot be fairly scored on it.
+UNIT_LABELS: dict[Language, dict[str, str]] = {
+    Language.NL: {"HUR": "uur", "KGM": "kg", "MTR": "m", "LTR": "l", "DAY": "dagen",
+                  "MON": "maand"},
+    Language.FR: {"HUR": "h", "KGM": "kg", "MTR": "m", "LTR": "l", "DAY": "jours",
+                  "MON": "mois"},
+    Language.EN: {"HUR": "hrs", "KGM": "kg", "MTR": "m", "LTR": "L", "DAY": "days",
+                  "MON": "months"},
+}
+
+
+def unit_label(unit_code: str, language: Language) -> str:
+    """The printed unit for a UN/ECE code, or '' for pieces.
+
+    An unknown code prints as itself rather than disappearing, so a unit can never
+    silently drop off the page.
+    """
+    if unit_code == "C62":
+        return ""
+    return UNIT_LABELS[language].get(unit_code, unit_code)

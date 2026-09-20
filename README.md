@@ -30,7 +30,7 @@ become UBL. This project is about that intake step.
 |---|---|---|
 | 1 | Validator harness: XSD + EN 16931 + Peppol, dual backend, fixtures, CI | **Done** |
 | 2 | Test corpus: known-good UBL rendered to PDFs with perfect ground truth | **Done** |
-| 3 | Extraction and mapping pipeline with a single capped repair attempt | Not started |
+| 3 | Extraction and mapping pipeline with a single capped repair attempt | **Done** (unmeasured) |
 | 4 | Published accuracy, cost and latency metrics | Not started |
 | 5 | Evaluation on real supplier invoices, reported separately | Not started |
 
@@ -47,6 +47,77 @@ publishes none.
 | Documents valid after one repair attempt | - | - |
 | Token cost per invoice | - | - |
 | Median latency per invoice | - | - |
+
+## The pipeline
+
+```bash
+peppol-e-invoice-intake convert invoice.pdf --out out/
+```
+
+    extract -> map -> emit -> validate -> (one repair attempt) -> emit -> validate
+
+**The model reads; the code computes.** The model returns what is *printed* -
+line items, parties, dates, identifiers, and the totals as they appear on the
+page - and is explicitly told not to calculate anything. Deterministic code then
+builds the invoice using the same arithmetic the corpus was generated with, so
+BR-CO-10 through BR-CO-17 are satisfied by construction rather than by the model
+getting the sums right. Every number crosses the boundary as a string and is
+parsed into `Decimal`, because JSON's only numeric type is a float and those
+rules are exact-equality checks.
+
+That trade creates a specific danger, and the pipeline is built around it: if
+totals are always recomputed, **a misread quantity produces a perfectly valid
+invoice for the wrong amount**. Validation would never notice, because it only
+ever sees the computed, self-consistent numbers. So the printed totals are
+extracted too and compared against the computed ones. `PipelineResult` reports
+`valid` and `reconciles` separately, and the second is the one that catches this.
+
+Full reasoning, including what it costs:
+[docs/decisions/0002-extract-then-compute.md](docs/decisions/0002-extract-then-compute.md).
+
+### The repair attempt
+
+Capped at one, deliberately. An unbounded loop converges on something that
+validates, which is not the same as something that is right - the cheapest way to
+satisfy a rule is often to drop the offending field. One attempt keeps "passed
+after repair" a meaningful number rather than a measure of how long we were
+willing to wait.
+
+The repair edits the *extraction*, never the XML: a validation failure is evidence
+the reading was wrong. The model is shown described problems - business term, what
+the rule requires, where to look - never raw SVRL. It is told not to invent a
+value to satisfy a rule, and a repair that validates no better than the original
+is discarded rather than kept.
+
+### Two arms
+
+| Arm | Sends | Trade |
+|---|---|---|
+| `vision` | The PDF itself | Sees layout, columns and rules; costs more |
+| `text` | Only the PDF text layer | Much cheaper; loses the spatial information that distinguishes a quantity from a unit price |
+
+Both are kept so Phase 4 can report the cost/accuracy tradeoff rather than assert
+it. A scanned invoice has no text layer, which the text arm reports as a failure
+rather than hallucinating around.
+
+### Spend is measured and capped
+
+Cost per invoice is a published metric, so it is measured rather than estimated.
+The same accounting is the guard: the ceiling is checked *before* every request,
+so a misbehaving loop stops instead of running up a bill.
+
+```bash
+peppol-e-invoice-intake convert invoices/*.pdf --budget 5.00
+```
+
+### What the pipeline will not do
+
+Anything it cannot map confidently is surfaced, not guessed. The clearest case:
+no invoice prints a Peppol electronic address (BT-34 / BT-49), so it is derived -
+scheme 0208 from a Belgian enterprise number, the country's VAT scheme otherwise.
+When nothing printed on the page supports one, the document is flagged for a
+person instead of being given an invented identifier, and it fails validation for
+an honest reason.
 
 ## Validation harness
 
@@ -200,7 +271,23 @@ peppol-e-invoice-intake rules
 peppol-e-invoice-intake corpus build      # generate the test corpus
 peppol-e-invoice-intake corpus list       # base invoices and layouts
 peppol-e-invoice-intake corpus status     # what is built on disk
+
+peppol-e-invoice-intake convert x.pdf     # PDF to validated UBL (calls the API)
 ```
+
+`convert` and `eval` are the only commands that cost money. They read
+`ANTHROPIC_API_KEY` from a `.env` file in the project folder:
+
+```bash
+cp .env.example .env      # then put your key after the equals sign
+```
+
+`.env` is gitignored, and a test asks git itself to confirm it stays that way.
+The key is loaded into the CLI's own process only when a paid command runs, so
+your shell never holds it - which matters because an `ANTHROPIC_API_KEY` in the
+environment silently switches tools such as Claude Code to per-token billing.
+Only that one variable is read from the file. A key already set in the
+environment takes precedence, and an `ant auth login` profile works too.
 
 `check` exits non-zero if any document is invalid, so it composes in a shell
 pipeline or a CI step.
