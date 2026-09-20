@@ -1,0 +1,127 @@
+{#
+  Layout "minimal": near plain text, no rules, no colour, weak column structure.
+
+  The hard case, and deliberately so. Columns are held apart by whitespace rather
+  than borders or background fills, so a text extractor gets a stream of numbers
+  with little to bind them to their headers. Line items run as indented blocks
+  instead of table rows, and the totals are plain labelled lines with nothing
+  visually distinguishing the final amount from the ones above it.
+#}
+<!DOCTYPE html>
+<html lang="{{ invoice.language.value }}">
+<head>
+<meta charset="utf-8">
+<title>{{ L.invoice }} {{ invoice.number }}</title>
+<style>
+  @page { size: A4; margin: 20mm 18mm; }
+  body {
+    font-family: "Courier New", "DejaVu Sans Mono", monospace;
+    font-size: 9pt;
+    color: #000;
+    margin: 0;
+    line-height: 1.55;
+    white-space: normal;
+  }
+  h1 { font-size: 9pt; font-weight: 400; text-transform: uppercase; letter-spacing: 4px; margin: 0 0 6mm 0; }
+  p { margin: 0 0 4mm 0; }
+  .kv { margin-bottom: 5mm; }
+  .kv span { display: inline-block; min-width: 40mm; }
+  table { width: 100%; border-collapse: collapse; margin-bottom: 5mm; }
+  th { text-align: left; font-weight: 400; text-transform: uppercase; font-size: 7.6pt;
+       letter-spacing: 1px; padding: 0 0 2mm 0; }
+  th.n, td.n { text-align: right; }
+  td { padding: 1mm 0; vertical-align: top; }
+  td.n { white-space: nowrap; }
+  td.pad { padding-right: 8mm; }
+  th.pad { padding-right: 8mm; }
+  .sub { font-size: 8.2pt; padding-left: 4mm; }
+  .totline span { display: inline-block; min-width: 46mm; }
+  tr { break-inside: avoid; }
+</style>
+</head>
+<body>
+
+<h1>{{ L.invoice }}</h1>
+
+<p>
+{{ invoice.supplier.name }}<br>
+{{ invoice.supplier.street }}<br>
+{{ invoice.supplier.postal_zone }} {{ invoice.supplier.city }}<br>
+{% if invoice.supplier.vat_id %}{{ L.vat_number }} {{ invoice.supplier.vat_id }}{% endif %}
+</p>
+
+<p>
+{{ L.bill_to }}:<br>
+{{ invoice.customer.name }}<br>
+{{ invoice.customer.street }}<br>
+{{ invoice.customer.postal_zone }} {{ invoice.customer.city }}<br>
+{% if invoice.customer.vat_id %}{{ L.vat_number }} {{ invoice.customer.vat_id }}{% endif %}
+</p>
+
+<div class="kv">
+  <div><span>{{ L.invoice_number }}</span>{{ invoice.number }}</div>
+  <div><span>{{ L.issue_date }}</span>{{ d(invoice.issue_date) }}</div>
+  {% if invoice.due_date %}<div><span>{{ L.due_date }}</span>{{ d(invoice.due_date) }}</div>{% endif %}
+  {% if invoice.delivery_date %}<div><span>{{ L.delivery_date }}</span>{{ d(invoice.delivery_date) }}</div>{% endif %}
+  {% if invoice.buyer_reference %}<div><span>{{ L.buyer_reference }}</span>{{ invoice.buyer_reference }}</div>{% endif %}
+  {% if invoice.order_reference %}<div><span>{{ L.order_reference }}</span>{{ invoice.order_reference }}</div>{% endif %}
+</div>
+
+<table>
+  <thead>
+    <tr>
+      <th class="pad" style="width:8mm">{{ L.line }}</th>
+      <th>{{ L.description }}</th>
+      <th class="n pad" style="width:18mm">{{ L.quantity }}</th>
+      <th class="n pad" style="width:22mm">{{ L.unit_price }}</th>
+      <th class="n pad" style="width:12mm">{{ L.vat_rate }}</th>
+      <th class="n" style="width:24mm">{{ L.line_total }}</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for line in invoice.lines %}
+    <tr>
+      <td class="pad">{{ line.line_id }}</td>
+      <td>
+        {{ line.name }}
+        {% if line.description %}<div class="sub">{{ line.description }}</div>{% endif %}
+        {% if line.discount %}<div class="sub">{{ L.discount }} -{{ m(line.discount) }}</div>{% endif %}
+      </td>
+      <td class="n pad">{{ q(line.quantity) }}</td>
+      <td class="n pad">{{ m(line.unit_price) }}</td>
+      <td class="n pad">{{ r(line.vat_rate) }}</td>
+      <td class="n">{{ m(line.net_amount) }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<p>
+{{ L.vat_breakdown }}:<br>
+{% for subtotal in invoice.tax_subtotals %}
+{{ r(subtotal.rate) }} &mdash; {{ L.taxable }} {{ m(subtotal.taxable_amount) }} &mdash; {{ L.vat_amount }} {{ m(subtotal.tax_amount) }}{% if subtotal.category.value != 'S' %} ({{ vat_note(subtotal.category) }}){% endif %}<br>
+{% endfor %}
+{% if invoice.exemption_reason %}{{ invoice.exemption_reason }}{% endif %}
+</p>
+
+<div class="totline">
+  <div><span>{{ L.total_excl }}</span>{{ m(invoice.tax_exclusive_amount) }}</div>
+  <div><span>{{ L.total_vat }}</span>{{ m(invoice.tax_amount) }}</div>
+  <div><span>{{ L.total_incl }}</span>{{ m(invoice.tax_inclusive_amount) }}</div>
+  {% if invoice.prepaid_amount %}
+  <div><span>{{ L.prepaid }}</span>-{{ m(invoice.prepaid_amount) }}</div>
+  {% endif %}
+  <div><span>{{ L.payable }}</span>{{ m(invoice.payable_amount) }} {{ invoice.currency }}</div>
+</div>
+
+<p style="margin-top:6mm">
+{% if invoice.iban %}{{ L.iban }} {{ invoice.iban }}<br>{% endif %}
+{% if invoice.payment_reference %}{{ L.payment_reference }} {{ invoice.payment_reference }}<br>{% endif %}
+{% if invoice.payment_terms %}{{ L.payment_terms }} {{ invoice.payment_terms }}<br>{% endif %}
+{% if invoice.supplier.legal_id %}{{ L.enterprise_number }} {{ invoice.supplier.legal_id }}{% endif %}
+</p>
+
+{% if invoice.note %}<p>{{ invoice.note }}</p>{% endif %}
+
+</body>
+</html>

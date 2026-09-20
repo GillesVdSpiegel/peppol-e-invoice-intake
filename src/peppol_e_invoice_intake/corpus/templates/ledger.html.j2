@@ -1,0 +1,185 @@
+{#
+  Layout "ledger": accounting style, amount column FIRST.
+
+  The column order is the point. Every other layout ends each row with the line
+  total, so "the rightmost figure on the row is the amount" is a rule that works
+  five times out of six - and fails here. Quantity and unit price also swap
+  places relative to "classic".
+#}
+<!DOCTYPE html>
+<html lang="{{ invoice.language.value }}">
+<head>
+<meta charset="utf-8">
+<title>{{ L.invoice }} {{ invoice.number }}</title>
+<style>
+  @page { size: A4; margin: 16mm 14mm 18mm 14mm; }
+  * { box-sizing: border-box; }
+  body {
+    font-family: "Consolas", "DejaVu Sans Mono", "Courier New", monospace;
+    font-size: 8.6pt;
+    color: #1c1c1c;
+    margin: 0;
+    line-height: 1.4;
+    font-variant-numeric: tabular-nums;
+  }
+  h1 { font-size: 11pt; letter-spacing: 3px; margin: 0 0 1mm 0; text-transform: uppercase; }
+  .rule { border-bottom: 1.4pt double #1c1c1c; margin-bottom: 4mm; }
+  /* Widths here must not depend on font metrics. The monospace stack resolves to
+     Consolas on Windows and DejaVu Sans Mono on Linux, and DejaVu is wider: a
+     fixed label width that just fits on one pushed the value off the right page
+     edge on the other, silently dropping it from the document. Labels are
+     allowed to shrink and values to wrap onto their own line. */
+  .meta { display: flex; justify-content: space-between; gap: 6mm; margin-bottom: 6mm; }
+  .meta .col { flex: 1 1 0; min-width: 0; overflow-wrap: anywhere; }
+  .meta .col:last-child { flex: 1.3 1 0; }
+  .meta .lbl { text-transform: uppercase; font-size: 7pt; letter-spacing: 1.4px; color: #666; }
+  dl { margin: 0; }
+  dl div { display: flex; flex-wrap: wrap; gap: 0 2mm; }
+  dl dt { flex: 0 1 auto; min-width: 28mm; color: #555; }
+  dl dd { flex: 1 1 auto; min-width: 0; margin: 0; overflow-wrap: anywhere; }
+
+  table.l { width: 100%; border-collapse: collapse; margin-bottom: 5mm; }
+  table.l th {
+    font-size: 7pt; text-transform: uppercase; letter-spacing: 1.2px;
+    border-top: .8pt solid #1c1c1c; border-bottom: .8pt solid #1c1c1c;
+    padding: 1.2mm 2mm; text-align: left; color: #333;
+  }
+  table.l th.n, table.l td.n { text-align: right; }
+  table.l td { padding: 1.4mm 2mm; border-bottom: .25pt dotted #9a9a9a; vertical-align: top; }
+  table.l td.n { white-space: nowrap; }
+  .d { color: #555; font-size: 7.8pt; }
+
+  .band {
+    border-top: .8pt solid #1c1c1c; border-bottom: .8pt solid #1c1c1c;
+    padding: 2mm 0; margin-bottom: 5mm;
+  }
+  .band .lbl { text-transform: uppercase; font-size: 7pt; letter-spacing: 1.4px; color: #666; margin-bottom: 1mm; }
+  table.v { width: 100%; border-collapse: collapse; font-size: 8pt; }
+  table.v th { text-align: left; font-weight: 400; color: #555; padding: .5mm 2mm .5mm 0; font-size: 7.4pt; }
+  table.v td { padding: .5mm 2mm .5mm 0; }
+  table.v td.n, table.v th.n { text-align: right; }
+
+  .totals { margin-left: auto; width: 84mm; }
+  /* Leader dots are drawn as a flexible spacer element rather than generated
+     content: a long ::after string overflows the row and pushes the amount off
+     the page, which silently loses three figures from the document. */
+  .totals .r { display: flex; align-items: baseline; gap: 2mm; padding: .8mm 0; }
+  .totals .r .k { flex: 0 0 auto; color: #555; white-space: nowrap; }
+  .totals .r .dots { flex: 1 1 auto; border-bottom: .3pt dotted #b4b4b4; }
+  .totals .r .v { flex: 0 0 auto; white-space: nowrap; }
+  .totals .r.g {
+    border-top: 1.4pt double #1c1c1c; margin-top: 1.5mm; padding-top: 2mm;
+    font-weight: 700; font-size: 10.5pt;
+  }
+  .totals .r.g .dots { border-bottom: none; }
+  .pay { margin-top: 7mm; font-size: 8pt; }
+  .pay dl div { max-width: 130mm; }
+  .pay dl dt { flex: 0 0 auto; min-width: 42mm; }
+  tr { break-inside: avoid; }
+</style>
+</head>
+<body>
+
+<h1>{{ L.invoice }}</h1>
+<div class="rule"></div>
+
+<div class="meta">
+  <div class="col">
+    <div class="lbl">{{ L.supplier }}</div>
+    {{ invoice.supplier.name }}<br>
+    {{ invoice.supplier.street }}<br>
+    {{ invoice.supplier.postal_zone }} {{ invoice.supplier.city }}<br>
+    {% if invoice.supplier.vat_id %}{{ L.vat_number }} {{ invoice.supplier.vat_id }}{% endif %}
+  </div>
+  <div class="col">
+    <div class="lbl">{{ L.customer }}</div>
+    {{ invoice.customer.name }}<br>
+    {{ invoice.customer.street }}<br>
+    {{ invoice.customer.postal_zone }} {{ invoice.customer.city }}<br>
+    {% if invoice.customer.vat_id %}{{ L.vat_number }} {{ invoice.customer.vat_id }}{% endif %}
+  </div>
+  <div class="col">
+    <div class="lbl">{{ L.invoice }}</div>
+    <dl>
+      <div><dt>{{ L.invoice_number }}</dt><dd>{{ invoice.number }}</dd></div>
+      <div><dt>{{ L.issue_date }}</dt><dd>{{ d(invoice.issue_date) }}</dd></div>
+      {% if invoice.due_date %}<div><dt>{{ L.due_date }}</dt><dd>{{ d(invoice.due_date) }}</dd></div>{% endif %}
+      {% if invoice.buyer_reference %}<div><dt>{{ L.buyer_reference }}</dt><dd>{{ invoice.buyer_reference }}</dd></div>{% endif %}
+      {% if invoice.order_reference %}<div><dt>{{ L.order_reference }}</dt><dd>{{ invoice.order_reference }}</dd></div>{% endif %}
+      {% if invoice.delivery_date %}<div><dt>{{ L.delivery_date }}</dt><dd>{{ d(invoice.delivery_date) }}</dd></div>{% endif %}
+    </dl>
+  </div>
+</div>
+
+<table class="l">
+  <thead>
+    <tr>
+      <th class="n" style="width:24mm">{{ L.line_total }}</th>
+      <th class="n" style="width:12mm">{{ L.vat_rate }}</th>
+      <th class="n" style="width:22mm">{{ L.unit_price }}</th>
+      <th class="n" style="width:18mm">{{ L.quantity }}</th>
+      <th style="width:8mm">{{ L.line }}</th>
+      <th>{{ L.description }}</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for line in invoice.lines %}
+    <tr>
+      <td class="n">{{ m(line.net_amount) }}</td>
+      <td class="n">{{ r(line.vat_rate) }}</td>
+      <td class="n">{{ m(line.unit_price) }}</td>
+      <td class="n">{{ q(line.quantity) }} {{ line.unit_code }}</td>
+      <td>{{ line.line_id }}</td>
+      <td>
+        {{ line.name }}
+        {% if line.description %}<div class="d">{{ line.description }}</div>{% endif %}
+        {% if line.discount %}<div class="d">{{ L.discount }} &minus;{{ m(line.discount) }}</div>{% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<div class="band">
+  <div class="lbl">{{ L.vat_breakdown }}</div>
+  <table class="v">
+    <tr>
+      <th style="width:22mm">{{ L.vat_rate }}</th>
+      <th class="n" style="width:32mm">{{ L.taxable }}</th>
+      <th class="n" style="width:32mm">{{ L.vat_amount }}</th>
+      <th></th>
+    </tr>
+    {% for subtotal in invoice.tax_subtotals %}
+    <tr>
+      <td>{{ r(subtotal.rate) }}</td>
+      <td class="n">{{ m(subtotal.taxable_amount) }}</td>
+      <td class="n">{{ m(subtotal.tax_amount) }}</td>
+      <td class="d">{% if subtotal.category.value != 'S' %}{{ vat_note(subtotal.category) }}{% endif %}</td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% if invoice.exemption_reason %}<div class="d" style="margin-top:1.5mm">{{ invoice.exemption_reason }}</div>{% endif %}
+</div>
+
+<div class="totals">
+  <div class="r"><span class="k">{{ L.total_excl }}</span><span class="dots"></span><span class="v">{{ m(invoice.tax_exclusive_amount) }}</span></div>
+  <div class="r"><span class="k">{{ L.total_vat }}</span><span class="dots"></span><span class="v">{{ m(invoice.tax_amount) }}</span></div>
+  <div class="r"><span class="k">{{ L.total_incl }}</span><span class="dots"></span><span class="v">{{ m(invoice.tax_inclusive_amount) }}</span></div>
+  {% if invoice.prepaid_amount %}
+  <div class="r"><span class="k">{{ L.prepaid }}</span><span class="dots"></span><span class="v">&minus;{{ m(invoice.prepaid_amount) }}</span></div>
+  {% endif %}
+  <div class="r g"><span class="k">{{ L.payable }}</span><span class="dots"></span><span class="v">{{ m(invoice.payable_amount) }} {{ invoice.currency }}</span></div>
+</div>
+
+<div class="pay">
+  <dl>
+    {% if invoice.iban %}<div><dt>{{ L.iban }}</dt><dd>{{ invoice.iban }}</dd></div>{% endif %}
+    {% if invoice.payment_reference %}<div><dt>{{ L.payment_reference }}</dt><dd>{{ invoice.payment_reference }}</dd></div>{% endif %}
+    {% if invoice.payment_terms %}<div><dt>{{ L.payment_terms }}</dt><dd>{{ invoice.payment_terms }}</dd></div>{% endif %}
+    {% if invoice.supplier.legal_id %}<div><dt>{{ L.enterprise_number }}</dt><dd>{{ invoice.supplier.legal_id }}</dd></div>{% endif %}
+  </dl>
+  {% if invoice.note %}<div class="d" style="margin-top:2mm">{{ invoice.note }}</div>{% endif %}
+</div>
+
+</body>
+</html>

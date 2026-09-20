@@ -29,7 +29,7 @@ become UBL. This project is about that intake step.
 | Phase | What it delivers | State |
 |---|---|---|
 | 1 | Validator harness: XSD + EN 16931 + Peppol, dual backend, fixtures, CI | **Done** |
-| 2 | Test corpus: known-good UBL rendered to PDFs with perfect ground truth | Not started |
+| 2 | Test corpus: known-good UBL rendered to PDFs with perfect ground truth | **Done** |
 | 3 | Extraction and mapping pipeline with a single capped repair attempt | Not started |
 | 4 | Published accuracy, cost and latency metrics | Not started |
 | 5 | Evaluation on real supplier invoices, reported separately | Not started |
@@ -79,7 +79,79 @@ number this project will publish rests on that layer being right.
 The trade-off, and what this does *not* prove, is written up in
 [docs/decisions/0001-dual-backend.md](docs/decisions/0001-dual-backend.md).
 
-## Fixtures
+## The test corpus
+
+Phase 2 inverts the usual problem. Instead of collecting invoice PDFs and
+labelling them by hand, the corpus starts from a model, emits a UBL document and
+a PDF from the same source, and gets perfect field-level ground truth for free.
+
+```bash
+peppol-e-invoice-intake corpus build      # 60 documents in about 25 seconds
+peppol-e-invoice-intake corpus list       # what is in the catalogue
+```
+
+**20 base invoices x 3 layouts = 60 documents.** Ten invoices are written in
+Dutch, six in French and four in English - language belongs to the invoice, not
+to the render, because a Dutch-authored invoice shown with French column headings
+is not a document any supplier would send. Flemish suppliers invoice in Dutch,
+Walloon suppliers in French, exporters in English.
+
+The catalogue is chosen for what breaks extraction, not for visual variety:
+several VAT rates on one document, reverse charge, intra-community supply,
+export, exempt and zero-rated supplies, line discounts, a prepaid amount, 42 line
+items running past a page break, fractional quantities in hours and kilograms,
+amounts from EUR 0.03 to EUR 584,180.50, and prices carrying a third decimal so
+the arithmetic lands on a half cent.
+
+### Six layouts
+
+| Layout | What makes it different |
+|---|---|
+| `classic` | Conventional Belgian invoice, letterhead left, totals stacked right |
+| `modern` | Coloured header band, amount due stated *before* the line detail, VAT summary as prose |
+| `compact` | Dense 7.8pt type, hairline rules, VAT and totals side by side |
+| `ledger` | Monospaced accounting style with the **amount column first** |
+| `letterhead` | Formal letter, window-envelope address block, facts in a subject line |
+| `minimal` | Near plain text: no rules, no colour, columns held apart by whitespace alone |
+
+Each layout also uses **different wording for the same business terms** - the VAT
+base is "Belastbare basis" on one and "Maatstaf" or "Bedrag excl. btw" on others.
+Without that, a pipeline could memorise one string per field and score better
+than it deserves.
+
+The PDFs print Belgian conventions (`02/03/2026`, `1.520,50`) while the ground
+truth stays canonical (`2026-03-02`, `1520.50`). Normalising that gap is part of
+what Phase 3 has to do, so the corpus does not hand it over.
+
+### Two things that keep the corpus honest
+
+**Every generated document is validated before anything is written.** An invalid
+invoice fails the build rather than landing on disk with a warning. Six of the
+twenty failed the first time they were run - a zero-rated invoice carrying an
+exemption reason that BR-Z-10 forbids, intra-community supplies missing the
+deliver-to country, VAT numbers labelled as GLNs, and prices rounded to two
+decimals so the line total no longer matched quantity times price. All six were
+bugs in this code, caught by Phase 1.
+
+**Every layout is rendered and read back.** `tests/test_corpus_layouts.py` renders
+each layout to PDF, extracts the text, and asserts every total, line amount and
+identifier is actually present. This exists because the `ledger` layout once
+pushed three total amounts off the page with a CSS leader: the HTML was correct,
+the PDF rendered without error, and the document was quietly missing data. A
+figure clipped out of a PDF becomes ground truth asserting something the document
+does not show.
+
+Identifiers are computed, not invented: 0208 enterprise numbers satisfy
+`PEPPOL-COMMON-R043`'s mod-97 check, GLNs satisfy `PEPPOL-COMMON-R040`'s GS1
+check digit, and IBANs carry correct Belgian national and ISO 13616 check digits.
+
+Sample output: [Dutch, classic](docs/samples/classic-nl.pdf) ·
+[French reverse charge, letterhead](docs/samples/letterhead-fr.pdf) ·
+[English intra-community, ledger](docs/samples/ledger-en.pdf)
+
+The corpus is generated rather than committed, so `corpus/` is gitignored.
+
+## Validation fixtures
 
 One hand-authored valid Belgian invoice, plus 14 deliberately broken variants
 generated from it by a single declared mutation each
@@ -105,6 +177,7 @@ python -m venv .venv
 .venv/Scripts/activate
 pip install -e ".[dev]"
 python scripts/fetch_artefacts.py
+python -m playwright install chromium     # only needed to render corpus PDFs
 pytest
 ```
 
@@ -123,6 +196,10 @@ network.
 peppol-e-invoice-intake check invoice.xml
 peppol-e-invoice-intake check invoice.xml --backend official
 peppol-e-invoice-intake rules
+
+peppol-e-invoice-intake corpus build      # generate the test corpus
+peppol-e-invoice-intake corpus list       # base invoices and layouts
+peppol-e-invoice-intake corpus status     # what is built on disk
 ```
 
 `check` exits non-zero if any document is invalid, so it composes in a shell
