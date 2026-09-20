@@ -40,7 +40,7 @@ verschuldigd is in plaats van de verkoper:
 Eén commando zet ze om, een tweede controleert het resultaat onafhankelijk. Dit is
 een echte uitvoering, geen mock-up: 8,9 seconden en 2,89 cent.
 
-![Terminal: convert levert een geldige factuur op voor 2,89 cent in 8,9 seconden, check bevestigt dat](docs/images/terminal.svg)
+![Terminal: convert levert een geldige factuur op voor 2,89 cent in 8,9 seconden, check bevestigt dat](docs/images/terminal.png)
 
 In het bestand dat eruit komt, zijn twee dingen het vermelden waard. Het Franse
 woord op het papier werd de juiste btw-code mét de wettelijke motivering, en het
@@ -59,6 +59,14 @@ afgeleid uit het btw-nummer:
 Dat is de hele opdracht: een blad lezen dat voor mensen geschreven is, en er een
 bestand van maken dat voor machines geschreven is, zonder het verschil zelf in te
 vullen.
+
+Beide helften van die uitvoering zitten in deze repository, zodat je de bewering
+kan natrekken in plaats van ze te geloven: de factuur hierboven is
+[docs/samples/letterhead-fr.pdf](docs/samples/letterhead-fr.pdf) en het bestand dat
+eruit kwam is
+[docs/samples/letterhead-fr-output.xml](docs/samples/letterhead-fr-output.xml).
+`check` op dat tweede bestand loslaten is precies wat de onderste helft van de
+terminalafbeelding toont.
 
 ## Wat de cijfers zeggen
 
@@ -263,7 +271,15 @@ verwachte antwoord correct is bij constructie.
   mod-97, GLN's de GS1-controle, IBAN's dragen correcte controlecijfers.
 
 Voorbeelden: [Nederlands](docs/samples/classic-nl.pdf) ·
-[Frans](docs/samples/letterhead-fr.pdf) · [Engels](docs/samples/ledger-en.pdf)
+[Frans](docs/samples/letterhead-fr.pdf) · [Engels](docs/samples/ledger-en.pdf) ·
+[de UBL die uit de Franse factuur kwam](docs/samples/letterhead-fr-output.xml)
+
+De gegenereerde documenten zelf zitten niet in git - `corpus build` maakt alle 60
+byte voor byte opnieuw aan, offline. De uitvoer van een evaluatie evenmin: elke run
+schrijft zijn eigen map met elke omgezette factuur, de ruwe lezing erachter en een
+veld-per-veldvergelijking met het verwachte antwoord, maar die mappen blijven
+lokaal, omdat ze reproduceerbaar zijn en omdat er anders ooit een echte factuur per
+ongeluk in git belandt.
 </details>
 
 <details>

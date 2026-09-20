@@ -1,7 +1,11 @@
-"""Build the two images at the top of the README.
+"""Build the images at the top of the README.
 
     docs/images/invoice.png     the input: a corpus invoice as rendered
     docs/images/terminal.svg    the output: a real `convert` run, then `check`
+    docs/images/terminal.png    the same, rasterised, because GitHub strips the
+                                <style> block out of an SVG in a README and the
+                                terminal colours live in it - the image renders,
+                                but blank. The README references the PNG.
 
 The terminal image is made from output captured from an actual run, not
 retyped. Capture it first, from the project root (the convert step is a paid API
@@ -76,9 +80,43 @@ def terminal_svg() -> Path:
     return target
 
 
+def terminal_png(svg: Path) -> Path:
+    """Rasterise the terminal SVG at 2x, for a README that will not style it."""
+    from playwright.sync_api import sync_playwright
+
+    width, height = (float(value) for value in _view_box(svg)[2:])
+    target = IMAGES / "terminal.png"
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch()
+        page = browser.new_page(
+            viewport={"width": round(width), "height": round(height)},
+            device_scale_factor=2,
+        )
+        page.set_content(
+            f'<body style="margin:0">{svg.read_text(encoding="utf-8")}</body>'
+        )
+        # The stylesheet pulls Fira Code from a CDN; without this the shot can
+        # land on the fallback font mid-swap.
+        page.evaluate("document.fonts.ready")
+        page.wait_for_timeout(1500)
+        page.screenshot(path=str(target), clip={"x": 0, "y": 0, "width": width, "height": height})
+        browser.close()
+    return target
+
+
+def _view_box(svg: Path) -> list[str]:
+    import re
+
+    match = re.search(r'viewBox="([^"]+)"', svg.read_text(encoding="utf-8"))
+    if match is None:  # pragma: no cover - rich always writes one
+        raise SystemExit(f"no viewBox in {svg}")
+    return match.group(1).split()
+
+
 def main() -> int:
     IMAGES.mkdir(parents=True, exist_ok=True)
-    for path in (invoice_png(), terminal_svg()):
+    svg = terminal_svg()
+    for path in (invoice_png(), svg, terminal_png(svg)):
         print(f"wrote {path.relative_to(ROOT)} ({path.stat().st_size // 1024} KB)")
     return 0
 

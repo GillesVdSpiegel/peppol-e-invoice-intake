@@ -36,7 +36,7 @@ where the buyer owes the VAT instead of the seller:
 One command converts it, and a second one independently checks the result. This
 is a real run, not a mock-up - it took 8.9 seconds and cost 2.89 cents:
 
-![Terminal: convert produces a valid invoice for 2.89 cents in 8.9 seconds, and check confirms it](docs/images/terminal.svg)
+![Terminal: convert produces a valid invoice for 2.89 cents in 8.9 seconds, and check confirms it](docs/images/terminal.png)
 
 Inside the file it produced, two things are worth pointing at. The French word on
 the page became the correct VAT code with its legal justification, and the
@@ -54,6 +54,13 @@ its VAT number:
 
 That is the whole job: read a page written for humans, and produce a file written
 for machines, without inventing the difference.
+
+Both halves of that run are in this repository, so you can check the claim rather
+than take it: the invoice above is [docs/samples/letterhead-fr.pdf](docs/samples/letterhead-fr.pdf),
+and the file it produced is
+[docs/samples/letterhead-fr-output.xml](docs/samples/letterhead-fr-output.xml).
+Running `check` on that second file is how the bottom half of the terminal image
+was produced.
 
 ## What the numbers say
 
@@ -251,7 +258,15 @@ correct by construction.
   pass the GS1 check, IBANs carry correct check digits.
 
 Samples: [Dutch](docs/samples/classic-nl.pdf) ·
-[French](docs/samples/letterhead-fr.pdf) · [English](docs/samples/ledger-en.pdf)
+[French](docs/samples/letterhead-fr.pdf) · [English](docs/samples/ledger-en.pdf) ·
+[the UBL produced from the French one](docs/samples/letterhead-fr-output.xml)
+
+The generated documents themselves are not committed - `corpus build` recreates all
+60 of them byte for byte, offline. Nor are the outputs of an evaluation run: each
+run writes its own directory holding every converted invoice, the raw reading
+behind it, and a per-field comparison against the expected answer, but those
+directories stay local, because they are reproducible and because real invoices
+would otherwise end up in git by accident.
 </details>
 
 <details>
